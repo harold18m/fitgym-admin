@@ -54,15 +54,15 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        nombre: "",
-        email: "",
-        telefono: "",
-        dni: "",
-        fecha_nacimiento: "",
-        membresia_id: "",
-        fecha_inicio: format(new Date(), "yyyy-MM-dd"), // Fecha de hoy por defecto
-        fecha_fin: "",
-      },
+      nombre: "",
+      email: "",
+      telefono: "",
+      dni: "",
+      fecha_nacimiento: "",
+      membresia_id: "",
+      fecha_inicio: format(new Date(), "yyyy-MM-dd"), // Fecha de hoy por defecto
+      fecha_fin: "",
+    },
   });
 
   // Función para calcular fecha de vencimiento
