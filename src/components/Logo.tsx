@@ -19,7 +19,7 @@ export function Logo({
   return (
     <div className={`inline-flex items-center gap-2 ${className}`} aria-label="FitGym">
       <Image
-        src="/logo.png"
+        src="/logo-fitgym.svg"
         width={size}
         height={size}
         alt={alt}
