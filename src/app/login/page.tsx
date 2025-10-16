@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { z } from "zod";
 import { Dumbbell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/app/providers";
+import { supabase } from "@/lib/supabase";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Correo electrónico inválido" }),
@@ -21,6 +22,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const { login } = useAuth();
@@ -54,6 +56,41 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   }
+
+  async function handleGoogleLogin() {
+    try {
+      setIsGoogleLoading(true);
+      const redirectTo = `${window.location.origin}/login`;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+      if (error) throw error;
+      // La redirección ocurre automáticamente; al volver a /login, verificamos la sesión.
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error con Google",
+        description: error?.message ?? "No se pudo iniciar sesión con Google",
+      });
+      setIsGoogleLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    // Si volvemos desde OAuth a /login y hay sesión, activamos auth local y redirigimos.
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          login();
+          router.replace("/");
+        }
+      } catch (e) {
+        console.error("Error verificando sesión de Supabase", e);
+      }
+    })();
+  }, [login, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-black p-4">
@@ -104,6 +141,17 @@ export default function LoginPage() {
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2"
+            aria-label="Iniciar sesión con Google"
+            onClick={handleGoogleLogin}
+            disabled={isLoading || isGoogleLoading}
+          >
+            <img src="/google.svg" alt="" aria-hidden="true" className="h-5 w-5" />
+            {isGoogleLoading ? "Redirigiendo a Google..." : "Iniciar sesión con Google"}
+          </Button>
           <div className="text-sm text-center text-muted-foreground">
             ¿No tienes una cuenta?{" "}
             <Link href="/registro" className="underline">

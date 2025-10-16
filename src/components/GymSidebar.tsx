@@ -14,7 +14,8 @@ import {
   Menu,
   LogOut,
   Fingerprint,
-  CreditCard
+  CreditCard,
+  User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ type SidebarItem = {
 
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
+  { icon: User, label: 'Perfil', href: '/perfil' },
   { icon: Fingerprint, label: 'Asistencia', href: '/asistencia' },
   { icon: Users, label: 'Clientes', href: '/clientes' },
   { icon: CreditCard, label: 'Membresías', href: '/membresias' },
