@@ -14,6 +14,7 @@ import { Dumbbell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/app/providers";
 import { supabase } from "@/lib/supabase";
+import Logo from "@/components/Logo";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Correo electrónico inválido" }),
@@ -96,10 +97,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-black p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 flex flex-col items-center">
-          <div className="flex items-center justify-center mb-4">
-            <Dumbbell className="h-8 w-8 text-primary mr-2" />
-            <h2 className="text-3xl font-bold">FitGym</h2>
-          </div>
+          <Logo />
           <CardTitle className="text-2xl text-center">Iniciar sesión</CardTitle>
           <CardDescription className="text-center">
             Ingresa tus credenciales para acceder al sistema

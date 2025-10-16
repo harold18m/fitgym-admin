@@ -24,9 +24,18 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarTrigger
+  SidebarTrigger,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarSeparator,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/app/providers';
+import { Logo } from '@/components/Logo';
 
 type SidebarItem = {
   icon: React.ElementType;
@@ -51,6 +60,7 @@ export function GymSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
+  const { state } = useSidebar();
   
   const handleLogout = () => {
     logout();
@@ -58,11 +68,10 @@ export function GymSidebar() {
   };
   
   return (
-    <Sidebar className="border-r" data-testid="sidebar">
+    <Sidebar className="border-r" collapsible="icon" data-testid="sidebar">
       <SidebarHeader className="flex h-16 items-center px-4 border-b">
         <Link href="/" className="flex items-center gap-2">
-          <Dumbbell className="h-6 w-6 text-fitgym-white" />
-          <span className="font-bold text-lg text-fitgym-white">FitGym</span>
+          <Logo withText={state !== 'collapsed'} size={24} textClassName="text-fitgym-white" />
         </Link>
         <div className="ml-auto flex items-center gap-1 md:hidden">
           <SidebarTrigger>
@@ -71,32 +80,40 @@ export function GymSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
-        <div className="flex flex-col gap-1">
-          {sidebarItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start gap-2",
-                  pathname === item.href && "bg-accent text-accent-foreground"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </Button>
-            </Link>
-          ))}
-        </div>
+        <SidebarGroup>
+          <SidebarGroupLabel>Menú</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {sidebarItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                  >
+                    <Link href={item.href} className="flex items-center gap-2">
+                      <item.icon className="h-5 w-5" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-2 border-t">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start gap-2 text-red-500 hover:text-red-700"
-          onClick={handleLogout}
-        >
-          <LogOut className="h-5 w-5" />
-          <span>Cerrar Sesión</span>
-        </Button>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={handleLogout}
+              tooltip="Cerrar Sesión"
+            >
+              <LogOut className="h-5 w-5 text-red-500" />
+              <span className="text-red-500">Cerrar Sesión</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

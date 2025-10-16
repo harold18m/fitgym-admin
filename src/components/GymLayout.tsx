@@ -1,7 +1,7 @@
 
 "use client";
 import { useRouter } from 'next/navigation';
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, SidebarRail } from "@/components/ui/sidebar";
 import { GymSidebar } from '@/components/GymSidebar';
 import { Bell, User, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -115,6 +115,7 @@ export function GymLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <GymSidebar />
+        <SidebarRail />
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b flex items-center px-4 md:px-6 gap-4 justify-between">
             <div className="flex items-center gap-2">
