@@ -11,15 +11,18 @@ export type LogoProps = {
 
 export function Logo({
   size = 28,
-  withText = false,
+  withText = true,
   className = "",
   textClassName = "",
   alt = "FitGym logo",
 }: LogoProps) {
   return (
-    <div className={`inline-flex items-center gap-2 ${className}`} aria-label="FitGym">
+    <div
+      className={`inline-flex items-center gap-2 rounded-lg border bg-muted/30 px-2 py-1 ${className}`}
+      aria-label="FitGym"
+    >
       <Image
-        src="/logo-fitgym.svg"
+        src="/fitgym-logo.png"
         width={size}
         height={size}
         alt={alt}
