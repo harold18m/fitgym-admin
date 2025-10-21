@@ -3,15 +3,11 @@ import {
   Activity,
   Users,
   Calendar,
-  Dumbbell,
-  MessageSquare,
   TrendingUp
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActivityChart } from "@/components/dashboard/ActivityChart";
-import { RecentClients } from "@/components/dashboard/RecentClients";
-import { UpcomingClasses } from "@/components/dashboard/UpcomingClasses";
-import { ExpiringMemberships } from "@/components/dashboard/ExpiringMemberships";
+import { PaymentStatusPanel } from "@/components/dashboard/PaymentStatusPanel";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -113,42 +109,12 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
+      <div className="w-full">
         <ActivityChart />
-        <ExpiringMemberships />
       </div>
-
-      {/* <div className="grid gap-4 grid-cols-1 lg:grid-cols-6">
-        <UpcomingClasses />
-        <RecentClients />
-        <Card className="col-span-3 lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Mensajes WhatsApp</CardTitle>
-            <CardDescription>Mensajes recientes de clientes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {messages.map(message => (
-                <div key={message.id} className="flex items-start space-x-4">
-                  <Avatar>
-                    <AvatarImage src={message.avatarUrl} />
-                    <AvatarFallback>
-                      {message.name.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{message.name}</p>
-                      <span className="text-xs text-muted-foreground">{message.time}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{message.message}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div> */}
+      <div className="lg:col-span-3">
+        <PaymentStatusPanel />
+      </div>
     </div>
   );
 }

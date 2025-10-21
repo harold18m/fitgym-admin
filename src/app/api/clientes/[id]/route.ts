@@ -34,7 +34,7 @@ export async function PUT(
       'membresia_id',
       'nombre_membresia',
       'tipo_membresia',
-      'fecha_inicio',
+      // 'fecha_inicio', // eliminado: no existe en el modelo Prisma
       'fecha_fin',
       'estado',
       'avatar_url',
