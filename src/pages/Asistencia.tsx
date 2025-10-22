@@ -42,7 +42,26 @@ const estadoStyle = {
   pendiente: "bg-yellow-500",
 };
 
+// Estado de membresía (verde/rojo) como en Acceso
+const getStatus = (fechaFin: string | null): 'activa' | 'por_vencer' | 'vencida' => {
+  if (!fechaFin) return 'activa';
+  const today = new Date();
+  const end = new Date(fechaFin);
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const diffDays = Math.ceil((startOfEnd.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return 'vencida';
+  if (diffDays <= 3) return 'por_vencer';
+  return 'activa';
+};
 
+const getStatusBadge = (fechaFin: string | null) => {
+  const status = getStatus(fechaFin);
+  const text = status === 'activa' ? 'ACTIVO' : status === 'por_vencer' ? 'POR VENCER' : 'VENCIDO';
+  const variant = status === 'vencida' ? 'destructive' : 'secondary';
+  const extraClass = status === 'por_vencer' ? 'text-orange-500' : status === 'activa' ? 'text-gym-green' : '';
+  return <Badge variant={variant} className={`text-xs ${extraClass}`}>{text}</Badge>;
+};
 
 export default function Asistencia() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -457,6 +476,7 @@ export default function Asistencia() {
                       <TableHead>Hora</TableHead>
                       <TableHead>Membresía</TableHead>
                       <TableHead>Vence</TableHead>
+                      <TableHead>Estado</TableHead>
                       <TableHead>Método</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -494,6 +514,9 @@ export default function Asistencia() {
                         </TableCell>
                         <TableCell>
                           {cliente?.fecha_fin ? new Date(cliente.fecha_fin).toLocaleDateString() : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(cliente?.fecha_fin ?? null)}
                         </TableCell>
                         <TableCell>
                           <Badge

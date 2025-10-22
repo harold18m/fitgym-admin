@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Dumbbell, 
   Plus, 
@@ -46,70 +46,15 @@ import { Badge } from "@/components/ui/badge";
 interface Ejercicio {
   id: string;
   nombre: string;
-  categoria: string;
-  dificultad: string;
-  musculos: string[];
-  descripcion: string;
-  imagen: string;
+  categoria: string | null;
+  dificultad: string | null;
+  musculos: string[] | null;
+  descripcion: string | null;
+  imagen_url?: string | null;
 }
 
 // Datos de ejemplo
-const ejerciciosIniciales: Ejercicio[] = [
-  {
-    id: "1",
-    nombre: "Press de Banca",
-    categoria: "fuerza",
-    dificultad: "intermedio",
-    musculos: ["pecho", "triceps", "hombros"],
-    descripcion: "El press de banca es un ejercicio compuesto para desarrollar la parte superior del cuerpo.",
-    imagen: "/placeholder.svg",
-  },
-  {
-    id: "2",
-    nombre: "Sentadillas",
-    categoria: "fuerza",
-    dificultad: "principiante",
-    musculos: ["cuadriceps", "gluteos", "isquiotibiales"],
-    descripcion: "Las sentadillas son un ejercicio básico para fortalecer las piernas y glúteos.",
-    imagen: "/placeholder.svg",
-  },
-  {
-    id: "3",
-    nombre: "Peso Muerto",
-    categoria: "fuerza",
-    dificultad: "avanzado",
-    musculos: ["espalda", "gluteos", "isquiotibiales"],
-    descripcion: "El peso muerto es un ejercicio compuesto que trabaja casi todos los músculos del cuerpo.",
-    imagen: "/placeholder.svg",
-  },
-  {
-    id: "4",
-    nombre: "Burpees",
-    categoria: "cardio",
-    dificultad: "intermedio",
-    musculos: ["full-body"],
-    descripcion: "Los burpees son un ejercicio de cuerpo completo de alta intensidad.",
-    imagen: "/placeholder.svg",
-  },
-  {
-    id: "5",
-    nombre: "Plancha",
-    categoria: "core",
-    dificultad: "principiante",
-    musculos: ["abdominales", "espalda baja"],
-    descripcion: "La plancha es un ejercicio isométrico que fortalece el core y mejora la estabilidad.",
-    imagen: "/placeholder.svg",
-  },
-  {
-    id: "6",
-    nombre: "Dominadas",
-    categoria: "fuerza",
-    dificultad: "avanzado",
-    musculos: ["espalda", "biceps", "antebrazos"],
-    descripcion: "Las dominadas son un ejercicio excelente para desarrollar la fuerza de la parte superior del cuerpo.",
-    imagen: "/placeholder.svg",
-  },
-];
+const ejerciciosIniciales: Ejercicio[] = [];
 
 const coloresCategorias: { [key: string]: string } = {
   fuerza: "bg-blue-100 text-blue-800",
@@ -126,48 +71,109 @@ const coloresDificultad: { [key: string]: string } = {
 };
 
 export default function Ejercicios() {
-  const [ejercicios, setEjercicios] = useState<Ejercicio[]>(ejerciciosIniciales);
+  const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [ejercicioActual, setEjercicioActual] = useState<Ejercicio | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
-  
-  // Funciones CRUD
-  const agregarEjercicio = (ejercicio: Omit<Ejercicio, "id">) => {
-    const nuevoEjercicio = {
-      ...ejercicio,
-      id: Date.now().toString(),
+  const [formNombre, setFormNombre] = useState("");
+  const [formCategoria, setFormCategoria] = useState<string | null>(null);
+  const [formDificultad, setFormDificultad] = useState<string | null>(null);
+  const [formMusculosStr, setFormMusculosStr] = useState("");
+  const [formDescripcion, setFormDescripcion] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/ejercicios');
+        const json = await res.json();
+        setEjercicios(json.ejercicios || []);
+      } catch (e) {
+        console.error('Error cargando ejercicios', e);
+      }
     };
-    setEjercicios([...ejercicios, nuevoEjercicio]);
-  };
-  
-  const editarEjercicio = (ejercicio: Ejercicio) => {
-    setEjercicioActual(ejercicio);
+    load();
+  }, []);
+
+  const openNuevo = () => {
+    setEjercicioActual(null);
+    setFormNombre("");
+    setFormCategoria(null);
+    setFormDificultad(null);
+    setFormMusculosStr("");
+    setFormDescripcion("");
     setDialogoAbierto(true);
   };
-  
-  const actualizarEjercicio = (ejercicioActualizado: Ejercicio) => {
-    setEjercicios(
-      ejercicios.map((ej) =>
-        ej.id === ejercicioActualizado.id ? ejercicioActualizado : ej
-      )
-    );
-    setDialogoAbierto(false);
-    setEjercicioActual(null);
+
+  const openEditar = (ejercicio: Ejercicio) => {
+    setEjercicioActual(ejercicio);
+    setFormNombre(ejercicio.nombre || "");
+    setFormCategoria(ejercicio.categoria || null);
+    setFormDificultad(ejercicio.dificultad || null);
+    setFormMusculosStr((ejercicio.musculos || []).join(", "));
+    setFormDescripcion(ejercicio.descripcion || "");
+    setDialogoAbierto(true);
   };
-  
-  const eliminarEjercicio = (id: string) => {
-    setEjercicios(ejercicios.filter((ej) => ej.id !== id));
+
+  const guardarEjercicio = async () => {
+    try {
+      setGuardando(true);
+      const payload = {
+        nombre: formNombre,
+        categoria: formCategoria,
+        dificultad: formDificultad,
+        musculos: formMusculosStr,
+        descripcion: formDescripcion,
+      };
+      let saved: any = null;
+      if (ejercicioActual) {
+        const res = await fetch(`/api/ejercicios/${ejercicioActual.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('No se pudo actualizar');
+        saved = await res.json();
+        setEjercicios(prev => prev.map(e => e.id === saved.id ? saved : e));
+      } else {
+        const res = await fetch('/api/ejercicios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('No se pudo crear');
+        saved = await res.json();
+        setEjercicios(prev => [saved, ...prev]);
+      }
+      setDialogoAbierto(false);
+    } catch (e) {
+      console.error(e);
+      alert('Error guardando ejercicio');
+    } finally {
+      setGuardando(false);
+    }
   };
-  
+
+  const eliminarEjercicio = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ejercicios/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('No se pudo eliminar');
+      setEjercicios(prev => prev.filter(e => e.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert('Error eliminando ejercicio');
+    }
+  };
+
   // Filtrado de ejercicios
   const ejerciciosFiltrados = ejercicios.filter((ejercicio) =>
-    ejercicio.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    ejercicio.categoria.toLowerCase().includes(busqueda.toLowerCase()) ||
-    ejercicio.musculos.some(musculo => 
-      musculo.toLowerCase().includes(busqueda.toLowerCase())
+    (ejercicio.nombre || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+    (ejercicio.categoria || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+    (ejercicio.musculos || []).some(musculo => 
+      (musculo || '').toLowerCase().includes(busqueda.toLowerCase())
     )
   );
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -179,7 +185,7 @@ export default function Ejercicios() {
         </div>
         <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={openNuevo}>
               <Plus className="h-4 w-4" />
               Nuevo Ejercicio
             </Button>
@@ -196,12 +202,12 @@ export default function Ejercicios() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="nombre">Nombre</Label>
-                <Input id="nombre" placeholder="Nombre del ejercicio" />
+                <Input id="nombre" placeholder="Nombre del ejercicio" value={formNombre} onChange={e => setFormNombre(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="categoria">Categoría</Label>
-                  <Select>
+                  <Select value={formCategoria || undefined} onValueChange={setFormCategoria as any}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
@@ -216,7 +222,7 @@ export default function Ejercicios() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="dificultad">Dificultad</Label>
-                  <Select>
+                  <Select value={formDificultad || undefined} onValueChange={setFormDificultad as any}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
@@ -230,115 +236,54 @@ export default function Ejercicios() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="musculos">Músculos trabajados</Label>
-                <Input id="musculos" placeholder="pecho, brazos, etc." />
+                <Input id="musculos" placeholder="pecho, brazos, etc." value={formMusculosStr} onChange={e => setFormMusculosStr(e.target.value)} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="descripcion">Descripción</Label>
-                <Textarea id="descripcion" placeholder="Describe el ejercicio y cómo realizarlo correctamente" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="imagen">Imagen</Label>
-                <Input id="imagen" type="file" />
+                <Textarea id="descripcion" placeholder="Describe el ejercicio y cómo realizarlo correctamente" value={formDescripcion} onChange={e => setFormDescripcion(e.target.value)} />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogoAbierto(false)}>
                 Cancelar
               </Button>
-              <Button>Guardar</Button>
+              <Button onClick={guardarEjercicio} disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
-      
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar ejercicios..."
-            className="pl-8"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-        </div>
-        <Select>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Categoría" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="fuerza">Fuerza</SelectItem>
-            <SelectItem value="cardio">Cardio</SelectItem>
-            <SelectItem value="flexibilidad">Flexibilidad</SelectItem>
-            <SelectItem value="core">Core</SelectItem>
-            <SelectItem value="equilibrio">Equilibrio</SelectItem>
-          </SelectContent>
-        </Select>
+
+      <div className="flex items-center gap-2">
+        <Search className="h-4 w-4" />
+        <Input placeholder="Buscar por nombre, categoría o músculo" value={busqueda} onChange={e => setBusqueda(e.target.value)} />
       </div>
-      
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {ejerciciosFiltrados.map((ejercicio) => (
-          <Card key={ejercicio.id}>
-            <CardHeader className="relative">
-              <div className="absolute right-4 top-4 space-x-1">
-                <Button variant="ghost" size="icon" onClick={() => editarEjercicio(ejercicio)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="text-red-500" onClick={() => eliminarEjercicio(ejercicio.id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="rounded-full bg-muted p-2">
-                  <Dumbbell className="h-5 w-5 text-gym-blue" />
-                </div>
-                <div>
-                  <CardTitle>{ejercicio.nombre}</CardTitle>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {ejerciciosFiltrados.map((ej) => (
+          <Card key={ej.id}>
+            <CardHeader className="space-y-1">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2"><Dumbbell className="h-4 w-4" />{ej.nombre}</CardTitle>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="icon" onClick={() => openEditar(ej)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="destructive" size="icon" onClick={() => eliminarEjercicio(ej.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex gap-2 mt-2">
-                <Badge className={coloresCategorias[ejercicio.categoria] || "bg-gray-100"}>
-                  {ejercicio.categoria}
-                </Badge>
-                <Badge className={coloresDificultad[ejercicio.dificultad] || "bg-gray-100"}>
-                  {ejercicio.dificultad}
-                </Badge>
-              </div>
+              <CardDescription>{ej.descripcion || 'Sin descripción'}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="aspect-video mb-4 overflow-hidden rounded-lg bg-muted flex items-center justify-center">
-                <img 
-                  src={ejercicio.imagen} 
-                  alt={ejercicio.nombre} 
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {ejercicio.descripcion}
-              </p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {ejercicio.musculos.map((musculo, index) => (
-                  <Badge key={index} variant="outline">
-                    {musculo}
-                  </Badge>
+              <div className="flex flex-wrap gap-2">
+                {ej.categoria && <Badge variant="outline">{ej.categoria}</Badge>}
+                {ej.dificultad && <Badge variant="outline">{ej.dificultad}</Badge>}
+                {(ej.musculos || []).map((m, idx) => (
+                  <Badge key={idx} variant="secondary">{m}</Badge>
                 ))}
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" className="gap-2">
-                <PlayCircle className="h-4 w-4" />
-                Ver Demo
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="icon">
-                  <Heart className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <Scan className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardFooter>
           </Card>
         ))}
       </div>
