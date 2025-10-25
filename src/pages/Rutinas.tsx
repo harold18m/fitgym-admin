@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { Plus, Search, Edit, Trash2, UserCheck } from "lucide-react";
 
 interface RutinaTemplate {
@@ -313,7 +313,7 @@ export default function Rutinas() {
                     <Button onClick={addEjercicio} disabled={addingEjercicio}>
                       <Plus className="mr-2 h-4 w-4" /> Agregar
                     </Button>
-                    <Button variant="link" onClick={() => window.location.assign("/Ejercicios")}>Ver biblioteca de ejercicios</Button>
+                    <Link href="/ejercicios">Ver biblioteca de ejercicios</Link>
                   </div>
                 </div>
 

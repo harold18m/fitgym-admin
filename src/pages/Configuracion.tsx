@@ -16,12 +16,12 @@ const Configuracion = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="whatsapp" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+      <Tabs defaultValue="clientes" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          {/* <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             WhatsApp
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="clientes" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Clientes
@@ -36,7 +36,7 @@ const Configuracion = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="whatsapp" className="space-y-4">
+        {/* <TabsContent value="whatsapp" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Configuración de WhatsApp Business</CardTitle>
@@ -48,7 +48,7 @@ const Configuracion = () => {
               <WhatsAppSetupPanel />
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="clientes" className="space-y-4">
           <Card>
