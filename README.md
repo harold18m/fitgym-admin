@@ -78,11 +78,10 @@ Sistema completo de gestión para gimnasios desarrollado con **Next.js (App Rout
 
 2. **Conectar con Vercel**:
    - Ve a [vercel.com](https://vercel.com)
-   - Importa tu repositorio
+  - Importa tu repositorio
   - Configura las variables de entorno:
      - `NEXT_PUBLIC_SUPABASE_URL`
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     - `DATABASE_URL` (si usas Prisma)
 
 3. **¡Listo!** Tu aplicación estará disponible en tu dominio de Vercel.
 
@@ -121,30 +120,13 @@ src/
 
 El schema completo está disponible en `supabase-schema.sql`
 
-## 🧩 Prisma (Admin Server-only)
+## 🔧 Base de datos y acceso
 
-Esta app es un dashboard admin. Para operaciones de servidor que no requieren RLS puedes usar Prisma contra la base de datos de Supabase.
+La aplicación usa exclusivamente Supabase para base de datos y autenticación.
 
-- Instalación:
-  ```bash
-  npm i @prisma/client && npm i -D prisma
-  npx prisma init --datasource-provider postgresql
-  ```
-
-- Variables de entorno (solo servidor):
-  ```env
-  # Usar el pooler de Supabase (puerto 6543) y limitar conexiones
-  DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@YOUR_HOST:6543/postgres?pgbouncer=true&connection_limit=1
-  ```
-  Nunca expongas `DATABASE_URL` en el cliente. Configúralo en `.env` local y en Vercel (Environment Variables).
-
-- Uso en Next.js:
-  - Cliente singleton en `src/lib/prisma.ts` (ya incluido).
-  - Ejemplo de API en `src/app/api/clientes/route.ts` (GET lista clientes con membresía).
-
-- Notas:
-  - Con `DATABASE_URL` usas credenciales administrativas; las políticas RLS no aplican. Implementa autorización por código en tus handlers.
-  - Mantén los triggers y funciones en SQL (archivo `supabase-schema.sql`), Prisma no gestiona lógica en DB.
+- Cliente: `src/lib/supabase.ts`
+- Esquema y funciones: `supabase-schema.sql` y `supabase-functions.sql`
+- Acceso desde el frontend mediante hooks como `useClientes`, `useMembresias` y `useMembershipExpiration`.
 
 ## 🔧 Scripts Disponibles
 

@@ -17,9 +17,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import type { Database } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
-type Cliente = Database['public']['Tables']['clientes']['Row'];
+type Cliente = {
+  id: string | number;
+  nombre: string;
+  email: string;
+  telefono: string;
+  dni: string | null;
+  fecha_nacimiento: string | null;
+  membresia_id: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  avatar_url?: string | null;
+};
 import { format, addMonths, parse } from "date-fns";
 import QRCode from "react-qr-code";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -54,9 +64,26 @@ interface ClienteFormProps {
   clienteActual: Cliente | null;
   membresiasDisponibles: { id: string; nombre: string; precio: number; tipo: string; modalidad: string; duracion?: number }[];
   saveCliente?: (values: FormValues, options?: { closeDialog?: boolean }) => Promise<any>;
+  onValidateDni?: (dni: string, excludeId?: string | number | null) => Promise<{ ok: boolean; exists: boolean; error?: string }>;
+  onCreateAccount?: (email: string, password: string, values: FormValues) => Promise<void>;
+  autoCreateAccount?: boolean;
+  dniEmailDomain?: string;
+  onPhotoUpload?: (clientId: string | number, file: File) => Promise<string>;
 }
 
-export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, membresiasDisponibles, saveCliente }: ClienteFormProps) {
+export function ClienteForm({
+  isOpen,
+  onOpenChange,
+  onSubmit,
+  clienteActual,
+  membresiasDisponibles,
+  saveCliente,
+  onValidateDni,
+  onCreateAccount,
+  autoCreateAccount = true,
+  dniEmailDomain = 'fitgym.com.pe',
+  onPhotoUpload,
+}: ClienteFormProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -77,7 +104,7 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  const onPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setPhotoFile(file);
     if (file) {
@@ -88,24 +115,35 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
     }
   };
 
-  const uploadPhotoForClient = async (clientId: string) => {
+  const uploadPhotoForClient = async (clientId: string | number) => {
     if (!photoFile) return;
     try {
       setIsUploadingPhoto(true);
       const ext = photoFile.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = `clientes/${clientId}/avatar-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, photoFile, { upsert: true, contentType: photoFile.type });
-      if (uploadError) throw uploadError;
-      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
-      const publicUrl = pub.publicUrl;
-      const { error: updateError } = await supabase
-        .from('clientes')
-        .update({ avatar_url: publicUrl })
-        .eq('id', clientId);
-      if (updateError) throw updateError;
-      setPhotoPreview(publicUrl);
+      const clientIdStr = String(clientId);
+      const path = `clientes/${clientIdStr}/avatar-${Date.now()}.${ext}`;
+      if (onPhotoUpload) {
+        const publicUrl = await onPhotoUpload(clientId, photoFile);
+        const { error: updateError } = await supabase
+          .from('clientes')
+          .update({ avatar_url: publicUrl })
+          .eq('id', clientId);
+        if (updateError) throw updateError;
+        setPhotoPreview(publicUrl);
+      } else {
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(path, photoFile, { upsert: true, contentType: photoFile.type });
+        if (uploadError) throw uploadError;
+        const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+        const publicUrl = pub.publicUrl;
+        const { error: updateError } = await supabase
+          .from('clientes')
+          .update({ avatar_url: publicUrl })
+          .eq('id', clientId);
+        if (updateError) throw updateError;
+        setPhotoPreview(publicUrl);
+      }
     } catch (err) {
       console.error('Error subiendo foto:', err);
     } finally {
@@ -113,18 +151,19 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
     }
   };
 
-  const uploadPhoto = async () => {
+  const handleUploadPhoto = async () => {
     if (!clienteActual?.id || !photoFile) return;
     await uploadPhotoForClient(clienteActual.id);
   };
 
   // Generar contraseña temporal amigable
-  const generatePassword = () => {
+  const generatePassword = (): string => {
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
     const pass = Array.from({ length: 10 })
       .map(() => alphabet[Math.floor(Math.random() * alphabet.length)])
       .join("");
     setTempPassword(pass);
+    return pass;
   };
 
   const copyPassword = async () => {
@@ -187,31 +226,69 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
     }
   }, [clienteActual, form]);
 
+  // Sincroniza el email con el DNI para crear cuenta (dni@fitgym.com.pe)
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "dni") {
+        const dniVal = (value.dni || "").trim();
+        if (dniVal) {
+          const generatedEmail = `${dniVal}@${dniEmailDomain}`;
+          form.setValue("email", generatedEmail, { shouldValidate: true });
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, dniEmailDomain]);
+
 
   const handleSubmit = form.handleSubmit(async (values) => {
     const dni = (values.dni || "").trim();
     if (dni) {
-      let query = supabase
-        .from("clientes")
-        .select("id")
-        .eq("dni", dni);
-      if (clienteActual?.id) {
-        query = query.neq("id", clienteActual.id);
-      }
-      const { data, error } = await query;
-      if (error) {
-        form.setError("dni", {
-          type: "manual",
-          message: `Error verificando DNI: ${error.message}`,
-        });
-        return;
-      }
-      if (data && data.length > 0) {
-        form.setError("dni", {
-          type: "manual",
-          message: "El DNI ya está registrado",
-        });
-        return;
+      try {
+        if (onValidateDni) {
+          const result = await onValidateDni(dni, clienteActual?.id ?? null);
+          if (!result.ok) {
+            form.setError('dni', {
+              type: 'manual',
+              message: `Error verificando DNI: ${result.error || 'Desconocido'}`
+            })
+            return
+          }
+          if (result.exists) {
+            form.setError('dni', {
+              type: 'manual',
+              message: 'El DNI ya está registrado'
+            })
+            return
+          }
+        } else {
+          const resp = await fetch('/api/clientes/validar-dni', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dni, excludeId: clienteActual?.id ?? null })
+          })
+          const json = await resp.json()
+          if (!resp.ok || !json.ok) {
+            form.setError('dni', {
+              type: 'manual',
+              message: `Error verificando DNI: ${json.error || resp.statusText}`
+            })
+            return
+          }
+          if (json.exists) {
+            form.setError('dni', {
+              type: 'manual',
+              message: 'El DNI ya está registrado'
+            })
+            return
+          }
+        }
+      } catch (err: any) {
+        form.setError('dni', {
+          type: 'manual',
+          message: `Error de conexión al validar DNI: ${err?.message || 'desconocido'}`
+        })
+        return
       }
     }
     // Guardar y subir foto si corresponde
@@ -221,11 +298,51 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
         if (photoFile && saved?.id) {
           await uploadPhotoForClient(saved.id);
         }
+        // Crear cuenta en Supabase Auth usando email generado y contraseña temporal (configurable)
+        const finalEmail = values.email;
+        const finalPassword = tempPassword || (typeof generatePassword === 'function' ? generatePassword() : '');
+        if (autoCreateAccount && finalEmail && finalPassword) {
+          try {
+            if (onCreateAccount) {
+              await onCreateAccount(finalEmail, finalPassword, values);
+            } else {
+              await supabase.auth.signUp({
+                email: finalEmail,
+                password: finalPassword,
+                options: {
+                  data: { role: 'cliente', dni: values.dni || null, nombre: values.nombre }
+                }
+              });
+            }
+          } catch (authErr) {
+            console.warn('No se pudo crear la cuenta en Auth:', authErr);
+          }
+        }
         onOpenChange(false);
       } else {
         await onSubmit(values);
         if (photoFile && clienteActual?.id) {
           await uploadPhotoForClient(clienteActual.id);
+        }
+        // Crear cuenta en Supabase Auth para flujo onSubmit directo (configurable)
+        const finalEmail = values.email;
+        const finalPassword = tempPassword || (typeof generatePassword === 'function' ? generatePassword() : '');
+        if (autoCreateAccount && finalEmail && finalPassword) {
+          try {
+            if (onCreateAccount) {
+              await onCreateAccount(finalEmail, finalPassword, values);
+            } else {
+              await supabase.auth.signUp({
+                email: finalEmail,
+                password: finalPassword,
+                options: {
+                  data: { role: 'cliente', dni: values.dni || null, nombre: values.nombre }
+                }
+              });
+            }
+          } catch (authErr) {
+            console.warn('No se pudo crear la cuenta en Auth:', authErr);
+          }
         }
         onOpenChange(false);
       }
@@ -274,9 +391,9 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
                       </Avatar>
                       <div className="space-y-2">
                         <Label className="text-sm" htmlFor="foto">Foto de perfil</Label>
-                        <Input id="foto" type="file" accept="image/*" className="text-sm" onChange={onPhotoChange} />
+                        <Input id="foto" type="file" accept="image/*" className="text-sm" onChange={handlePhotoChange} />
                         <div className="flex gap-2">
-                          <Button type="button" onClick={uploadPhoto} disabled={!clienteActual || !photoFile || isUploadingPhoto}>
+                          <Button type="button" onClick={handleUploadPhoto} disabled={!clienteActual || !photoFile || isUploadingPhoto} aria-label="Subir foto" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleUploadPhoto(); } }}>
                             {isUploadingPhoto ? 'Subiendo...' : 'Subir foto'}
                           </Button>
                           {!clienteActual && (
@@ -296,19 +413,6 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
                             <FormLabel className="text-sm">Nombre completo</FormLabel>
                             <FormControl>
                               <Input placeholder="Ej: Juan Pérez" className="text-sm" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm">Correo electrónico</FormLabel>
-                            <FormControl>
-                              <Input placeholder="correo@ejemplo.com" className="text-sm" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -454,12 +558,12 @@ export function ClienteForm({ isOpen, onOpenChange, onSubmit, clienteActual, mem
                     <CardDescription>Cuenta, contraseña y código QR</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-rows-2 gap-4">
                       <div className="space-y-3">
                         <FormItem>
-                          <FormLabel className="text-sm">Correo (para cuenta)</FormLabel>
+                          <FormLabel className="text-sm">DNI (para cuenta)</FormLabel>
                           <FormControl>
-                            <Input className="text-sm" value={form.getValues("email")} readOnly />
+                            <Input className="text-sm" value={form.getValues("dni")} readOnly />
                           </FormControl>
                         </FormItem>
                         <FormItem>
