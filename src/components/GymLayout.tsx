@@ -190,12 +190,12 @@ export function GymLayout({ children }: { children: React.ReactNode }) {
                   )}
 
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
+                  {/* <DropdownMenuItem
                     className="text-center justify-center text-blue-600 hover:text-blue-700"
                     onClick={() => router.push('/calendario')}
                   >
                     Ver todos los eventos
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>

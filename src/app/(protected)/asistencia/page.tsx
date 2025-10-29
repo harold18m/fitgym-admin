@@ -89,6 +89,9 @@ export default function Asistencia() {
   const [qrManual, setQrManual] = useState("");
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isProcessingQR, setIsProcessingQR] = useState(false);
+  const [lastScannedQR, setLastScannedQR] = useState("");
+  const [lastRegisteredClient, setLastRegisteredClient] = useState<string | null>(null);
   const { toast } = useToast();
   const { fetchAsistencias, registrarAsistencia: registrarAsistenciaAPI, isLoading } = useAsistencias();
 
@@ -155,6 +158,16 @@ export default function Asistencia() {
       const hora = new Date(asistencia.fecha_asistencia)
         .toTimeString()
         .split(" ")[0];
+
+      // Actualizar el mensaje de confirmación para el QR scanner
+      if (tipo === "qr") {
+        setLastRegisteredClient(`${cliente.nombre} - ${hora}`);
+        // Limpiar el mensaje después de 5 segundos
+        setTimeout(() => {
+          setLastRegisteredClient(null);
+        }, 5000);
+      }
+
       toast({
         title: "Asistencia registrada",
         description: `${cliente.nombre} ha registrado su asistencia a las ${hora}.`,
@@ -211,8 +224,19 @@ export default function Asistencia() {
     }
   };
 
-  const registrarPorQRTexto = async (texto: string) => {
+  const registrarPorQRTexto = async (texto: string, fromCamera: boolean = false) => {
     const contenido = texto.trim();
+
+    // Si viene de la cámara, verificar si ya se está procesando o es el mismo QR
+    if (fromCamera) {
+      if (isProcessingQR) {
+        return; // Ya se está procesando un QR
+      }
+      if (lastScannedQR === contenido) {
+        return; // Es el mismo QR que se acaba de escanear
+      }
+    }
+
     if (!contenido) {
       toast({
         variant: "destructive",
@@ -225,6 +249,11 @@ export default function Asistencia() {
     let cliente: Cliente | null = null;
 
     try {
+      if (fromCamera) {
+        setIsProcessingQR(true);
+        setLastScannedQR(contenido);
+      }
+
       if (contenido.startsWith("CLIENT:")) {
         const id = contenido.slice("CLIENT:".length);
         const response = await fetch(`/api/clientes/${id}`);
@@ -248,16 +277,37 @@ export default function Asistencia() {
           title: "Cliente no encontrado",
           description: "El QR no coincide con ningún cliente."
         });
+        if (fromCamera) {
+          // Resetear después de 2 segundos para permitir intentar con otro QR
+          setTimeout(() => {
+            setLastScannedQR("");
+            setIsProcessingQR(false);
+          }, 2000);
+        }
         return;
       }
 
       await registrarAsistencia(cliente, "qr");
+
+      if (fromCamera) {
+        // Resetear después de 3 segundos para permitir escanear otro QR
+        setTimeout(() => {
+          setLastScannedQR("");
+          setIsProcessingQR(false);
+        }, 3000);
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error buscando cliente",
         description: error.message
       });
+      if (fromCamera) {
+        setTimeout(() => {
+          setLastScannedQR("");
+          setIsProcessingQR(false);
+        }, 2000);
+      }
     }
   };
 
@@ -377,42 +427,70 @@ export default function Asistencia() {
                 </Button>
               </div>
               {cameraEnabled && (
-                <div className="rounded-md border overflow-hidden">
-                  <QrScanner
-                    constraints={{ facingMode: "environment" }}
-                    scanDelay={500}
-                    onScan={(detected) => {
-                      const text = detected?.[0]?.rawValue || "";
-                      if (text) {
-                        registrarPorQRTexto(text);
-                      }
-                    }}
-                    onError={() => {
-                      /* Silencio errores menores de cámara */
-                    }}
-                    styles={{ container: { width: "100%", aspectRatio: isFullscreen ? "16/9" : "16/9" } }}
-                  />
-                </div>
+                <>
+                  <div className="rounded-md border overflow-hidden relative">
+                    <QrScanner
+                      constraints={{ facingMode: "environment" }}
+                      scanDelay={500}
+                      onScan={(detected) => {
+                        const text = detected?.[0]?.rawValue || "";
+                        if (text && !isProcessingQR) {
+                          registrarPorQRTexto(text, true);
+                        }
+                      }}
+                      onError={() => {
+                        /* Silencio errores menores de cámara */
+                      }}
+                      styles={{ container: { width: "100%", aspectRatio: isFullscreen ? "16/9" : "16/9" } }}
+                    />
+                    {isProcessingQR && (
+                      <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                        <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-md shadow-lg">
+                          <p className="text-sm font-medium">Procesando...</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {lastRegisteredClient && (
+                    <div className="bg-green-100 dark:bg-green-900/20 border border-green-500 rounded-md p-3">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <div>
+                          <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                            ✓ Asistencia registrada
+                          </p>
+                          <p className="text-xs text-green-700 dark:text-green-300">
+                            {lastRegisteredClient}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Pega el contenido del QR o DNI"
-                  value={qrManual}
-                  onChange={(e) => setQrManual(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      registrarPorQRTexto(qrManual);
-                    }
-                  }}
-                  className={isFullscreen ? "text-lg py-4" : ""}
-                />
-                <Button onClick={() => registrarPorQRTexto(qrManual)} disabled={isLoading} className={isFullscreen ? "px-6" : ""}>
-                  Verificar
-                </Button>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Escanea el código QR del cliente con la cámara o pega su contenido manualmente.
-              </div>
+              {!cameraEnabled && (
+                <>
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="Pega el contenido del QR o DNI"
+                      value={qrManual}
+                      onChange={(e) => setQrManual(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          registrarPorQRTexto(qrManual);
+                        }
+                      }}
+                      className={isFullscreen ? "text-lg py-4" : ""}
+                    />
+                    <Button onClick={() => registrarPorQRTexto(qrManual)} disabled={isLoading} className={isFullscreen ? "px-6" : ""}>
+                      Verificar
+                    </Button>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Escanea el código QR del cliente con la cámara o pega su contenido manualmente.
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

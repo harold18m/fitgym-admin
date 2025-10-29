@@ -55,7 +55,7 @@ const sidebarSections: { label: string; items: SidebarItem[] }[] = [
       { icon: CreditCard, label: 'Membresías', href: '/membresias' },
       { icon: Dumbbell, label: 'Ejercicios', href: '/ejercicios' },
       { icon: Dumbbell, label: 'Rutinas', href: '/rutinas' },
-      { icon: Calendar, label: 'Calendario', href: '/calendario' },
+      // { icon: Calendar, label: 'Calendario', href: '/calendario' },
     ],
   },
   {

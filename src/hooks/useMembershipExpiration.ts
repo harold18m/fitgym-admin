@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 interface ExpiringMembership {
@@ -17,15 +16,17 @@ export const useMembershipExpiration = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Obtener membresías próximas a vencer
+  // Obtener membresías próximas a vencer usando API con Prisma
   const fetchExpiringMemberships = async (daysAhead: number = 7) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_expiring_memberships', {
-        days_ahead: daysAhead
-      });
+      const response = await fetch(`/api/clientes/expiring?days=${daysAhead}`);
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Error al cargar membresías próximas a vencer');
+      }
+
+      const data = await response.json();
       setExpiringMemberships(data || []);
     } catch (error) {
       console.error('Error fetching expiring memberships:', error);
@@ -42,27 +43,46 @@ export const useMembershipExpiration = () => {
   // Obtener días restantes de una membresía específica
   const getDaysRemaining = async (clientId: string): Promise<number | null> => {
     try {
-      const { data, error } = await supabase.rpc('get_days_remaining', {
-        client_id: clientId
-      });
+      const response = await fetch(`/api/clientes/${clientId}`);
 
-      if (error) throw error;
-      return data;
+      if (!response.ok) {
+        throw new Error('Error al obtener cliente');
+      }
+
+      const cliente = await response.json();
+
+      if (!cliente.fecha_fin) return null;
+
+      const today = new Date();
+      const endDate = new Date(cliente.fecha_fin);
+      const diffTime = endDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return diffDays;
     } catch (error) {
       console.error('Error getting days remaining:', error);
       return null;
     }
   };
 
-  // Renovar membresía
+  // Renovar membresía - usa la API de extensión de pago
   const renewMembership = async (clientId: string, newMembresiaId?: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.rpc('renew_membership', {
-        client_id: clientId,
-        new_membresia_id: newMembresiaId || null
+      const response = await fetch(`/api/clientes/${clientId}/pago`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          membresia_id: newMembresiaId,
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Error al renovar membresía');
+      }
+
+      const data = await response.json();
 
       if (data) {
         toast({
