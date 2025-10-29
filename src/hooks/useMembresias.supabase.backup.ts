@@ -1,27 +1,29 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import type { membresias } from '@prisma/client';
+import type { Database } from '@/lib/supabase';
 
-type MembresiaInsert = Omit<membresias, 'id' | 'created_at' | 'updated_at' | 'clientes_activos'>;
-type MembresiaUpdate = Partial<MembresiaInsert>;
+type Membresia = Database['public']['Tables']['membresias']['Row'];
+type MembresiaInsert = Database['public']['Tables']['membresias']['Insert'];
+type MembresiaUpdate = Database['public']['Tables']['membresias']['Update'];
 
 export const useMembresias = () => {
-  const [membresias, setMembresias] = useState<membresias[]>([]);
+  const [membresias, setMembresias] = useState<Membresia[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Cargar membresías desde API
+  // Cargar membresías desde Supabase
   const fetchMembresias = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/membresias');
+      const { data, error } = await supabase
+        .from('membresias')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (!response.ok) {
-        throw new Error('Error al cargar membresías');
-      }
+      if (error) throw error;
 
-      const data = await response.json();
       setMembresias(data || []);
       setError(null);
     } catch (err) {
@@ -40,21 +42,15 @@ export const useMembresias = () => {
   // Crear nueva membresía
   const crearMembresia = async (membresia: MembresiaInsert) => {
     try {
-      const response = await fetch('/api/membresias', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(membresia),
-      });
+      const { data, error } = await supabase
+        .from('membresias')
+        .insert([membresia])
+        .select()
+        .single();
 
-      if (!response.ok) {
-        throw new Error('Error al crear membresía');
-      }
+      if (error) throw error;
 
-      const data = await response.json();
       setMembresias(prev => [data, ...prev]);
-
       toast({
         title: "Membresía creada",
         description: "La membresía ha sido creada exitosamente",
@@ -75,20 +71,16 @@ export const useMembresias = () => {
   // Actualizar membresía
   const actualizarMembresia = async (id: string, updates: MembresiaUpdate) => {
     try {
-      const response = await fetch(`/api/membresias/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
+      const { data, error } = await supabase
+        .from('membresias')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
 
-      if (!response.ok) {
-        throw new Error('Error al actualizar membresía');
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-      setMembresias(prev =>
+      setMembresias(prev => 
         prev.map(m => m.id === id ? data : m)
       );
 
@@ -112,16 +104,14 @@ export const useMembresias = () => {
   // Eliminar membresía
   const eliminarMembresia = async (id: string) => {
     try {
-      const response = await fetch(`/api/membresias/${id}`, {
-        method: 'DELETE',
-      });
+      const { error } = await supabase
+        .from('membresias')
+        .delete()
+        .eq('id', id);
 
-      if (!response.ok) {
-        throw new Error('Error al eliminar membresía');
-      }
+      if (error) throw error;
 
       setMembresias(prev => prev.filter(m => m.id !== id));
-
       toast({
         title: "Membresía eliminada",
         description: "La membresía ha sido eliminada exitosamente",
@@ -160,7 +150,7 @@ export const useMembresias = () => {
       .map(m => ({
         id: m.id,
         nombre: m.nombre,
-        precio: Number(m.precio),
+        precio: m.precio,
         tipo: m.tipo,
         modalidad: m.modalidad,
         duracion: m.duracion

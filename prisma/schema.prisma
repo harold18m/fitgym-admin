@@ -1,190 +1,226 @@
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-  schemas   = ["public"]
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
 }
 
-model Memberships {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name           String    @db.VarChar(255)
-  description    String?
-  type           String    @db.VarChar(20)
-  mode           String    @db.VarChar(20)
-  price          Decimal   @db.Decimal(10, 2)
-  duration       Int
-  features       String[]  @default([])
-  is_active      Boolean?  @default(true)
-  active_clients Int?      @default(0)
-  created_at     DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime? @updatedAt @db.Timestamptz(6)
-  clients        Clients[]
+// =====================================================
+// ENUMS
+// =====================================================
 
-  @@index([is_active])
-  @@schema("public")
+enum TipoMembresia {
+    mensual
+    trimestral
+    anual
 }
 
-model Clients {
-  id               String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  full_name        String        @db.VarChar(255)
-  email            String        @db.VarChar(255)
-  phone            String        @db.VarChar(20)
-  dni              String?       @unique @db.VarChar(20)
-  birth_date       DateTime      @db.Date
-  registered_at    DateTime?     @default(now()) @db.Timestamptz(6)
-  membership_id    String?       @db.Uuid
-  membership_name  String?       @db.VarChar(255)
-  membership_type  String?       @db.VarChar(50)
-  start_date       DateTime?     @db.Timestamptz(6)
-  end_date         DateTime?     @db.Timestamptz(6)
-  status           String?       @default("active") @db.VarChar(20)
-  attendance_count Int?          @default(0)
-  avatar_url       String?
-  created_at       DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime?     @updatedAt @db.Timestamptz(6)
-  attendances      Attendances[] @relation("ClientAttendances")
-  membership       Memberships?  @relation(fields: [membership_id], references: [id], onUpdate: NoAction, onDelete: SetNull)
-  events           Events[]
-  routines         Routines[]
-  access_card      AccessCards?
-
-  @@index([email])
-  @@index([dni])
-  @@index([status])
-  @@index([membership_id])
-  @@schema("public")
+enum ModalidadMembresia {
+    diario
+    interdiario
+    libre
 }
 
-model Events {
-  id                   String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  title                String        @db.VarChar(255)
-  description          String?
-  date                 DateTime      @db.Date
-  time                 DateTime      @db.Time(6)
-  type                 String        @db.VarChar(20)
-  client_id            String?       @db.Uuid
-  client_name          String?       @db.VarChar(255)
-  trainer              String?       @db.VarChar(255)
-  duration             Int           @default(60)
-  status               String?       @default("scheduled") @db.VarChar(20)
-  max_participants     Int?          @default(1)
-  current_participants Int?          @default(0)
-  price                Decimal?      @db.Decimal(10, 2)
-  notes                String?
-  created_at           DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime?     @updatedAt @db.Timestamptz(6)
-  attendances          Attendances[]
-  client               Clients?      @relation(fields: [client_id], references: [id], onUpdate: NoAction)
-
-  @@index([client_id])
-  @@schema("public")
+enum EstadoCliente {
+    activa
+    vencida
+    suspendida
 }
 
-model Attendances {
-  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  event_id        String?   @db.Uuid
-  client_id       String?   @db.Uuid
-  attendance_date DateTime? @default(now()) @db.Timestamptz(6)
-  status          String?   @default("present") @db.VarChar(20)
-  notes           String?
-  created_at      DateTime? @default(now()) @db.Timestamptz(6)
-  client          Clients?  @relation("ClientAttendances", fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  event           Events?   @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([event_id, client_id])
-  @@index([client_id])
-  @@schema("public")
+enum EstadoAsistencia {
+    presente
+    ausente
+    tardanza
 }
 
-model Profiles {
-  id         String    @id @db.Uuid
-  user_id    String    @unique @db.Uuid
-  email      String?
-  full_name  String?
-  avatar_url String?
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at DateTime? @updatedAt @db.Timestamptz(6)
-
-  @@schema("public")
+enum EstadoEvento {
+    programado
+    completado
+    cancelado
 }
 
-model Routines {
-  id          String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  client_id   String             @db.Uuid
-  name        String             @db.VarChar(255)
-  description String?
-  status      String?            @default("active") @db.VarChar(20)
-  start_date  DateTime?          @db.Timestamptz(6)
-  end_date    DateTime?          @db.Timestamptz(6)
-  created_at  DateTime?          @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime?          @updatedAt @db.Timestamptz(6)
-  client      Clients            @relation(fields: [client_id], references: [id], onUpdate: NoAction)
-  exercises   RoutineExercises[]
-
-  @@map("routines")
-  @@schema("public")
+enum TipoEvento {
+    clase
+    entrenamiento
+    evaluacion
+    otro
 }
 
-model RoutineExercises {
-  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  routine_id String    @db.Uuid
-  name       String    @db.VarChar(255)
-  sets       Int?
-  reps       Int?
-  day        String?   @db.VarChar(20)
-  notes      String?
-  order      Int?
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
-  routine    Routines  @relation(fields: [routine_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@map("routine_exercises")
-  @@schema("public")
+enum EstadoRutina {
+    activa
+    completada
+    pausada
 }
 
-model AccessCards {
-  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  client_id  String    @unique @db.Uuid
-  code       String    @unique @db.VarChar(64)
-  status     String?   @default("active") @db.VarChar(20)
-  last_entry DateTime? @db.Timestamptz(6)
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at DateTime? @updatedAt @db.Timestamptz(6)
-  client     Clients   @relation(fields: [client_id], references: [id], onUpdate: NoAction)
-
-  @@schema("public")
+enum EstadoTarjeta {
+    activa
+    inactiva
+    bloqueada
 }
 
-model RoutineTemplates {
-  id          String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name        String                     @db.VarChar(255)
-  description String?
-  created_by  String?                    @db.VarChar(255)
-  created_at  DateTime?                  @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime?                  @updatedAt @db.Timestamptz(6)
-  exercises   RoutineTemplateExercises[]
+// =====================================================
+// MODELOS
+// =====================================================
 
-  @@map("rutina_templates")
-  @@schema("public")
+model asistencias {
+    id               String   @id @db.Uuid
+    evento_id        String?  @db.Uuid
+    cliente_id       String   @db.Uuid
+    fecha_asistencia DateTime @default(now()) @db.Timestamptz(6)
+    estado           String   @default("presente") @db.VarChar(20)
+    notas            String?
+    created_at       DateTime @default(now()) @db.Timestamptz(6)
+    clientes         clientes @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+    eventos          eventos? @relation(fields: [evento_id], references: [id], onDelete: Cascade)
+
+    @@unique([evento_id, cliente_id])
+    @@index([cliente_id])
 }
 
-model RoutineTemplateExercises {
-  id                String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  template_id       String           @db.Uuid
-  exercise_id       String?          @db.Uuid
-  name              String?          @db.VarChar(255)
-  sets              Int?
-  repetitions       Int?
-  suggested_weight  Decimal?         @db.Decimal(10, 2)
-  day               String?          @db.VarChar(20)
-  notes             String?
-  order             Int?
-  created_at        DateTime?        @default(now()) @db.Timestamptz(6)
-  template          RoutineTemplates @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model clientes {
+    id                String        @id @default(uuid()) @db.Uuid
+    nombre            String        @db.VarChar(255)
+    email             String        @db.VarChar(255)
+    telefono          String        @db.VarChar(20)
+    dni               String?       @unique @db.VarChar(20)
+    fecha_nacimiento  DateTime      @db.Date
+    fecha_registro    DateTime      @default(now()) @db.Timestamptz(6)
+    membresia_id      String?       @db.Uuid
+    nombre_membresia  String?       @db.VarChar(255)
+    tipo_membresia    String?       @db.VarChar(50)
+    fecha_inicio      DateTime?     @db.Timestamptz(6)
+    fecha_fin         DateTime?     @db.Timestamptz(6)
+    estado            EstadoCliente @default(activa)
+    asistencias_count Int           @default(0) @map("asistencias")
+    avatar_url        String?
+    created_at        DateTime      @default(now()) @db.Timestamptz(6)
+    updated_at        DateTime      @updatedAt @db.Timestamptz(6)
 
-  @@map("rutina_template_ejercicios")
-  @@schema("public")
+    membresias      membresias?      @relation(fields: [membresia_id], references: [id])
+    asistencias_rel asistencias[]
+    eventos         eventos[]
+    rutinas         rutinas[]
+    tarjetas_acceso tarjetas_acceso?
+
+    @@index([dni])
+    @@index([email])
+    @@index([estado])
+    @@index([membresia_id])
+}
+
+model eventos {
+    id                     String        @id @db.Uuid
+    titulo                 String        @db.VarChar(255)
+    descripcion            String?
+    fecha                  DateTime      @db.Date
+    hora                   DateTime      @db.Time(6)
+    tipo                   String        @db.VarChar(20)
+    cliente_id             String?       @db.Uuid
+    nombre_cliente         String?       @db.VarChar(255)
+    entrenador             String?       @db.VarChar(255)
+    duracion               Int           @default(60)
+    estado                 String        @default("programado") @db.VarChar(20)
+    max_participantes      Int           @default(1)
+    participantes_actuales Int           @default(0)
+    precio                 Decimal?      @db.Decimal(10, 2)
+    notas                  String?
+    created_at             DateTime      @default(now()) @db.Timestamptz(6)
+    updated_at             DateTime      @db.Timestamptz(6)
+    asistencias            asistencias[]
+    clientes               clientes?     @relation(fields: [cliente_id], references: [id])
+
+    @@index([cliente_id])
+}
+
+model membresias {
+    id               String     @id @default(uuid()) @db.Uuid
+    nombre           String     @db.VarChar(255)
+    descripcion      String?
+    tipo             String     @db.VarChar(20)
+    modalidad        String     @db.VarChar(20)
+    precio           Decimal    @db.Decimal(10, 2)
+    duracion         Int
+    caracteristicas  String[]
+    activa           Boolean    @default(true)
+    clientes_activos Int        @default(0)
+    created_at       DateTime   @default(now()) @db.Timestamptz(6)
+    updated_at       DateTime   @updatedAt @db.Timestamptz(6)
+    clientes         clientes[]
+
+    @@index([activa])
+}
+
+model perfiles {
+    id              String   @id @db.Uuid
+    user_id         String   @unique @db.Uuid
+    email           String?
+    nombre_completo String?
+    avatar_url      String?
+    created_at      DateTime @default(now()) @db.Timestamptz(6)
+    updated_at      DateTime @db.Timestamptz(6)
+}
+
+model rutina_ejercicios {
+    id           String   @id @db.Uuid
+    rutina_id    String   @db.Uuid
+    nombre       String   @db.VarChar(255)
+    sets         Int?
+    repeticiones Int?
+    dia          String?  @db.VarChar(20)
+    notas        String?
+    orden        Int?
+    created_at   DateTime @default(now()) @db.Timestamptz(6)
+    rutinas      rutinas  @relation(fields: [rutina_id], references: [id], onDelete: Cascade)
+}
+
+model rutina_template_ejercicios {
+    id               String           @id @db.Uuid
+    template_id      String           @db.Uuid
+    ejercicio_id     String?          @db.Uuid
+    nombre           String?          @db.VarChar(255)
+    sets             Int?
+    repeticiones     Int?
+    peso_sugerido    Decimal?         @db.Decimal(10, 2)
+    dia              String?          @db.VarChar(20)
+    notas            String?
+    orden            Int?
+    created_at       DateTime         @default(now()) @db.Timestamptz(6)
+    rutina_templates rutina_templates @relation(fields: [template_id], references: [id], onDelete: Cascade)
+}
+
+model rutina_templates {
+    id                         String                       @id @db.Uuid
+    nombre                     String                       @db.VarChar(255)
+    descripcion                String?
+    creado_por                 String?                      @db.VarChar(255)
+    created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
+    updated_at                 DateTime                     @db.Timestamptz(6)
+    rutina_template_ejercicios rutina_template_ejercicios[]
+}
+
+model rutinas {
+    id                String              @id @db.Uuid
+    cliente_id        String              @db.Uuid
+    nombre            String              @db.VarChar(255)
+    descripcion       String?
+    estado            String              @default("activa") @db.VarChar(20)
+    fecha_inicio      DateTime?           @db.Timestamptz(6)
+    fecha_fin         DateTime?           @db.Timestamptz(6)
+    created_at        DateTime            @default(now()) @db.Timestamptz(6)
+    updated_at        DateTime            @db.Timestamptz(6)
+    rutina_ejercicios rutina_ejercicios[]
+    clientes          clientes            @relation(fields: [cliente_id], references: [id])
+}
+
+model tarjetas_acceso {
+    id             String    @id @db.Uuid
+    cliente_id     String    @unique @db.Uuid
+    codigo         String    @unique @db.VarChar(64)
+    estado         String    @default("activa") @db.VarChar(20)
+    ultima_entrada DateTime? @db.Timestamptz(6)
+    created_at     DateTime  @default(now()) @db.Timestamptz(6)
+    updated_at     DateTime  @db.Timestamptz(6)
+    clientes       clientes  @relation(fields: [cliente_id], references: [id])
 }

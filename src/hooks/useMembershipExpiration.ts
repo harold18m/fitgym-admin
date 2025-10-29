@@ -69,12 +69,12 @@ export const useMembershipExpiration = () => {
           title: "Membresía renovada",
           description: "La membresía ha sido renovada exitosamente",
         });
-        
+
         // Actualizar la lista de membresías próximas a vencer
         await fetchExpiringMemberships();
         return true;
       }
-      
+
       return false;
     } catch (error) {
       console.error('Error renewing membership:', error);
@@ -88,11 +88,11 @@ export const useMembershipExpiration = () => {
   };
 
   // Calcular estado de membresía basado en fecha de vencimiento
-  const getMembershipStatus = (fechaFin: string | null): 'activa' | 'vencida' | 'por_vencer' => {
+  const getMembershipStatus = (fechaFin: string | Date | null): 'activa' | 'vencida' | 'por_vencer' => {
     if (!fechaFin) return 'activa';
-    
+
     const today = new Date();
-    const endDate = new Date(fechaFin);
+    const endDate = typeof fechaFin === 'string' ? new Date(fechaFin) : fechaFin;
     const diffTime = endDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 

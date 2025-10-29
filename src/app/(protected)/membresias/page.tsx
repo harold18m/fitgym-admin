@@ -11,11 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, Plus, Edit, Trash2, Users, Calendar, DollarSign, Clock, Star } from "lucide-react";
 import { useMembresias } from "@/hooks/useMembresias";
-import type { Database } from "@/lib/supabase";
+import type { membresias } from "@prisma/client";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
-type Membresia = Database['public']['Tables']['membresias']['Row'];
-type MembresiaInsert = Database['public']['Tables']['membresias']['Insert'];
+type MembresiaInsert = Omit<membresias, 'id' | 'created_at' | 'updated_at' | 'clientes_activos'>;
 
 const Membresias = () => {
   const {
@@ -28,13 +27,13 @@ const Membresias = () => {
   } = useMembresias();
 
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
-  const [editando, setEditando] = useState<Membresia | null>(null);
+  const [editando, setEditando] = useState<membresias | null>(null);
   const [nuevaMembresia, setNuevaMembresia] = useState<Partial<MembresiaInsert>>({
     nombre: '',
-    descripcion: '',
+    descripcion: null,
     tipo: 'mensual',
     modalidad: 'diario',
-    precio: 0,
+    precio: '' as any, // Decimal type from Prisma, empty string initially
     duracion: 1,
     caracteristicas: [],
     activa: true
@@ -42,7 +41,7 @@ const Membresias = () => {
 
   // Estado para confirmación de eliminación
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [membresiaAEliminar, setMembresiaAEliminar] = useState<Membresia | null>(null);
+  const [membresiaAEliminar, setMembresiaAEliminar] = useState<membresias | null>(null);
   const [nuevaCaracteristica, setNuevaCaracteristica] = useState('');
 
   const tiposMembresia = [
@@ -101,17 +100,17 @@ const Membresias = () => {
   const resetForm = () => {
     setNuevaMembresia({
       nombre: '',
-      descripcion: '',
+      descripcion: null,
       tipo: 'mensual',
       modalidad: 'diario',
-      precio: 0,
+      precio: '' as any,
       duracion: 1,
       caracteristicas: [],
       activa: true
     });
   };
 
-  const editarMembresiaHandler = (membresia: Membresia) => {
+  const editarMembresiaHandler = (membresia: membresias) => {
     setEditando(membresia);
     setNuevaMembresia({
       nombre: membresia.nombre,
@@ -245,7 +244,7 @@ const Membresias = () => {
                 <Label htmlFor="descripcion" className="text-sm">Descripción</Label>
                 <Textarea
                   id="descripcion"
-                  value={nuevaMembresia.descripcion}
+                  value={nuevaMembresia.descripcion || ''}
                   onChange={(e) => setNuevaMembresia({ ...nuevaMembresia, descripcion: e.target.value })}
                   placeholder="Describe los beneficios de esta membresía"
                   className="text-sm"
@@ -258,9 +257,9 @@ const Membresias = () => {
                   <Input
                     id="precio"
                     type="number"
-                    value={nuevaMembresia.precio}
-                    onChange={(e) => setNuevaMembresia({ ...nuevaMembresia, precio: Number(e.target.value) })}
-                    placeholder="0"
+                    value={nuevaMembresia.precio && Number(nuevaMembresia.precio) !== 0 ? Number(nuevaMembresia.precio) : ''}
+                    onChange={(e) => setNuevaMembresia({ ...nuevaMembresia, precio: e.target.value as any })}
+                    placeholder="0.00"
                     className="text-sm"
                   />
                 </div>
@@ -390,7 +389,7 @@ const Membresias = () => {
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-xl md:text-2xl font-bold">S/ {membresia.precio}</span>
+                        <span className="text-xl md:text-2xl font-bold">S/ {Number(membresia.precio)}</span>
                       </div>
                       <div className="text-xs md:text-sm text-muted-foreground">
                         {membresia.duracion} {obtenerUnidadDuracion(membresia.tipo)}
@@ -478,7 +477,7 @@ const Membresias = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-green-600" />
-                            <span className="text-2xl font-bold">S/ {membresia.precio}</span>
+                            <span className="text-2xl font-bold">S/ {Number(membresia.precio)}</span>
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {membresia.duracion} {obtenerUnidadDuracion(membresia.tipo)}

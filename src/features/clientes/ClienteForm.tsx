@@ -17,25 +17,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import type { clientes } from "@prisma/client";
 import { supabase } from "@/lib/supabase";
-type Cliente = {
-  id: string | number;
-  nombre: string;
-  email: string;
-  telefono: string;
-  dni: string | null;
-  fecha_nacimiento: string | null;
-  membresia_id: string | null;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
-  avatar_url?: string | null;
-};
 import { format, addMonths, parse } from "date-fns";
 import QRCode from "react-qr-code";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { CheckCircle2, User, CreditCard, FileCheck, ChevronRight, ChevronLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 // Usamos el datepicker nativo del navegador con Input type="date"
 
 
@@ -61,7 +51,7 @@ interface ClienteFormProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: FormValues) => void;
-  clienteActual: Cliente | null;
+  clienteActual: clientes | null;
   membresiasDisponibles: { id: string; nombre: string; precio: number; tipo: string; modalidad: string; duracion?: number }[];
   saveCliente?: (values: FormValues, options?: { closeDialog?: boolean }) => Promise<any>;
   onValidateDni?: (dni: string, excludeId?: string | number | null) => Promise<{ ok: boolean; exists: boolean; error?: string }>;
@@ -84,6 +74,9 @@ export function ClienteForm({
   dniEmailDomain = 'fitgym.com.pe',
   onPhotoUpload,
 }: ClienteFormProps) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 3;
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -93,7 +86,7 @@ export function ClienteForm({
       dni: "",
       fecha_nacimiento: "",
       membresia_id: "",
-      fecha_inicio: format(new Date(), "yyyy-MM-dd"), // Fecha de hoy por defecto
+      fecha_inicio: format(new Date(), "yyyy-MM-dd"),
       fecha_fin: "",
     },
   });
@@ -103,6 +96,13 @@ export function ClienteForm({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Reset step when dialog opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(clienteActual ? 1 : 1);
+    }
+  }, [isOpen, clienteActual]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -203,15 +203,21 @@ export function ClienteForm({
 
   useEffect(() => {
     if (clienteActual) {
+      // Helper para convertir Date | null a string
+      const formatDate = (date: Date | null) => {
+        if (!date) return "";
+        return date instanceof Date ? format(date, "yyyy-MM-dd") : date;
+      };
+
       form.reset({
         nombre: clienteActual.nombre,
         email: clienteActual.email,
         telefono: clienteActual.telefono,
         dni: clienteActual.dni || "",
-        fecha_nacimiento: clienteActual.fecha_nacimiento || "",
+        fecha_nacimiento: formatDate(clienteActual.fecha_nacimiento),
         membresia_id: clienteActual.membresia_id || "",
-        fecha_inicio: clienteActual.fecha_inicio ? clienteActual.fecha_inicio.split('T')[0] : "",
-        fecha_fin: clienteActual.fecha_fin ? clienteActual.fecha_fin.split('T')[0] : "",
+        fecha_inicio: formatDate(clienteActual.fecha_inicio),
+        fecha_fin: formatDate(clienteActual.fecha_fin),
       });
     } else {
       form.reset({
@@ -252,6 +258,7 @@ export function ClienteForm({
               type: 'manual',
               message: `Error verificando DNI: ${result.error || 'Desconocido'}`
             })
+            setCurrentStep(1); // Volver al paso 1
             return
           }
           if (result.exists) {
@@ -259,6 +266,7 @@ export function ClienteForm({
               type: 'manual',
               message: 'El DNI ya está registrado'
             })
+            setCurrentStep(1); // Volver al paso 1
             return
           }
         } else {
@@ -273,6 +281,7 @@ export function ClienteForm({
               type: 'manual',
               message: `Error verificando DNI: ${json.error || resp.statusText}`
             })
+            setCurrentStep(1);
             return
           }
           if (json.exists) {
@@ -280,6 +289,7 @@ export function ClienteForm({
               type: 'manual',
               message: 'El DNI ya está registrado'
             })
+            setCurrentStep(1);
             return
           }
         }
@@ -288,6 +298,7 @@ export function ClienteForm({
           type: 'manual',
           message: `Error de conexión al validar DNI: ${err?.message || 'desconocido'}`
         })
+        setCurrentStep(1);
         return
       }
     }
@@ -298,9 +309,8 @@ export function ClienteForm({
         if (photoFile && saved?.id) {
           await uploadPhotoForClient(saved.id);
         }
-        // Crear cuenta en Supabase Auth usando email generado y contraseña temporal (configurable)
         const finalEmail = values.email;
-        const finalPassword = tempPassword || (typeof generatePassword === 'function' ? generatePassword() : '');
+        const finalPassword = tempPassword || generatePassword();
         if (autoCreateAccount && finalEmail && finalPassword) {
           try {
             if (onCreateAccount) {
@@ -319,14 +329,14 @@ export function ClienteForm({
           }
         }
         onOpenChange(false);
+        setCurrentStep(1); // Reset para próxima vez
       } else {
         await onSubmit(values);
         if (photoFile && clienteActual?.id) {
           await uploadPhotoForClient(clienteActual.id);
         }
-        // Crear cuenta en Supabase Auth para flujo onSubmit directo (configurable)
         const finalEmail = values.email;
-        const finalPassword = tempPassword || (typeof generatePassword === 'function' ? generatePassword() : '');
+        const finalPassword = tempPassword || generatePassword();
         if (autoCreateAccount && finalEmail && finalPassword) {
           try {
             if (onCreateAccount) {
@@ -345,11 +355,57 @@ export function ClienteForm({
           }
         }
         onOpenChange(false);
+        setCurrentStep(1);
       }
     } catch (e) {
       console.warn('Error al guardar cliente o subir foto:', e);
     }
   });
+
+  // Validar paso actual antes de avanzar
+  const validateCurrentStep = async () => {
+    let isValid = false;
+
+    if (currentStep === 1) {
+      // Validar campos del paso 1
+      isValid = await form.trigger(['nombre', 'telefono', 'dni', 'fecha_nacimiento']);
+    } else if (currentStep === 2) {
+      // Validar campos del paso 2
+      isValid = await form.trigger(['membresia_id', 'fecha_inicio']);
+    } else if (currentStep === 3) {
+      // Paso 3 es solo revisión
+      isValid = true;
+    }
+
+    return isValid;
+  };
+
+  const nextStep = async () => {
+    const isValid = await validateCurrentStep();
+    if (isValid && currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const getStepIcon = (step: number) => {
+    if (step === 1) return <User className="h-5 w-5" />;
+    if (step === 2) return <CreditCard className="h-5 w-5" />;
+    if (step === 3) return <FileCheck className="h-5 w-5" />;
+    return null;
+  };
+
+  const getStepTitle = (step: number) => {
+    if (step === 1) return "Información Personal";
+    if (step === 2) return "Membresía";
+    if (step === 3) return "Revisión";
+    return "";
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -361,172 +417,266 @@ export function ClienteForm({
           <DialogDescription className="text-sm">
             {clienteActual
               ? "Modifica los datos del cliente"
-              : "Completa los datos para registrar un nuevo cliente"}
+              : `Paso ${currentStep} de ${totalSteps}: ${getStepTitle(currentStep)}`}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-            <Tabs defaultValue="datos" className="space-y-6">
-              <TabsList>
-                <TabsTrigger value="datos">Datos personales</TabsTrigger>
-                <TabsTrigger value="membresia">Membresía</TabsTrigger>
-                <TabsTrigger value="acceso">Acceso</TabsTrigger>
-              </TabsList>
 
-              <TabsContent value="datos" className="space-y-6">
+        {/* Progress Indicator */}
+        {!clienteActual && (
+          <div className="flex items-center justify-between mb-6">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center flex-1">
+                <div className="flex flex-col items-center flex-1">
+                  <div
+                    className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${step === currentStep
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : step < currentStep
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-muted bg-muted text-muted-foreground"
+                      }`}
+                  >
+                    {step < currentStep ? (
+                      <CheckCircle2 className="h-6 w-6" />
+                    ) : (
+                      getStepIcon(step)
+                    )}
+                  </div>
+                  <span className="text-xs mt-1 font-medium hidden sm:block">
+                    {getStepTitle(step)}
+                  </span>
+                </div>
+                {step < totalSteps && (
+                  <div
+                    className={`h-0.5 flex-1 mx-2 transition-colors ${step < currentStep ? "bg-primary" : "bg-muted"
+                      }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Form {...form}>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Paso 1: Información Personal */}
+            {(clienteActual || currentStep === 1) && (
+              <div className={currentStep === 1 || clienteActual ? "block" : "hidden"}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Datos personales</CardTitle>
-                    <CardDescription>Foto, nombre, contacto y documento</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Información Personal
+                    </CardTitle>
+                    <CardDescription>
+                      Datos básicos del cliente
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 mb-4">
-                      <Avatar className="h-16 w-16">
-                        <AvatarImage src={photoPreview || clienteActual?.avatar_url || undefined} />
-                        <AvatarFallback>
-                          {form.getValues('nombre')
-                            ? form.getValues('nombre').split(' ').map(n => n[0]).join('')
-                            : '?'}
+                  <CardContent className="space-y-4">
+                    {/* Foto de perfil */}
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-20 w-20">
+                        <AvatarImage
+                          src={photoPreview || clienteActual?.avatar_url || undefined}
+                        />
+                        <AvatarFallback className="text-lg">
+                          {form.getValues("nombre")
+                            ? form
+                              .getValues("nombre")
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                            : "?"}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="space-y-2">
-                        <Label className="text-sm" htmlFor="foto">Foto de perfil</Label>
-                        <Input id="foto" type="file" accept="image/*" className="text-sm" onChange={handlePhotoChange} />
-                        <div className="flex gap-2">
-                          <Button type="button" onClick={handleUploadPhoto} disabled={!clienteActual || !photoFile || isUploadingPhoto} aria-label="Subir foto" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleUploadPhoto(); } }}>
-                            {isUploadingPhoto ? 'Subiendo...' : 'Subir foto'}
-                          </Button>
-                          {!clienteActual && (
-                            <span className="text-xs text-muted-foreground">Guarda el cliente para habilitar la subida de foto.</span>
-                          )}
-                        </div>
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor="foto">Foto de perfil (opcional)</Label>
+                        <Input
+                          id="foto"
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                        />
                       </div>
                     </div>
 
+                    {/* Campos del formulario */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* campos de datos personales existentes */}
                       <FormField
                         control={form.control}
                         name="nombre"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-sm">Nombre completo</FormLabel>
+                            <FormLabel>Nombre completo *</FormLabel>
                             <FormControl>
-                              <Input placeholder="Ej: Juan Pérez" className="text-sm" {...field} />
+                              <Input
+                                placeholder="Ej: Juan Pérez García"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name="telefono"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm">Celular o teléfono</FormLabel>
-                            <FormControl>
-                              <Input placeholder="999 999 999" className="text-sm" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+
                       <FormField
                         control={form.control}
                         name="dni"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-sm">DNI</FormLabel>
+                            <FormLabel>DNI *</FormLabel>
                             <FormControl>
-                              <Input placeholder="12345678" className="text-sm" {...field} />
+                              <Input placeholder="12345678" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+
+                      <FormField
+                        control={form.control}
+                        name="telefono"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Teléfono *</FormLabel>
+                            <FormControl>
+                              <Input placeholder="999 999 999" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
                       <FormField
                         control={form.control}
                         name="fecha_nacimiento"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-sm">Fecha de nacimiento</FormLabel>
+                            <FormLabel>Fecha de nacimiento *</FormLabel>
                             <FormControl>
-                              <Input type="date" className="text-sm" {...field} />
+                              <Input type="date" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email (generado automáticamente)</FormLabel>
+                          <FormControl>
+                            <Input {...field} readOnly className="bg-muted" />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground">
+                            Se genera automáticamente como: dni@{dniEmailDomain}
+                          </p>
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
+            )}
 
-              <TabsContent value="membresia" className="space-y-6">
+            {/* Paso 2: Membresía */}
+            {(clienteActual || currentStep === 2) && (
+              <div className={currentStep === 2 || clienteActual ? "block" : "hidden"}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Membresía</CardTitle>
-                    <CardDescription>Selecciona la membresía y fecha de inicio</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Membresía
+                    </CardTitle>
+                    <CardDescription>
+                      Selecciona el plan y fechas
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="membresia_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm">Membresía</FormLabel>
-                            <Select onValueChange={(val) => {
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="membresia_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Plan de membresía *</FormLabel>
+                          <Select
+                            onValueChange={(val) => {
                               field.onChange(val);
                               const start = form.getValues("fecha_inicio");
-                              const mem = membresiasDisponibles.find((m) => m.id === val);
+                              const mem = membresiasDisponibles.find(
+                                (m) => m.id === val
+                              );
                               if (start && mem?.duracion) {
                                 const dt = parse(start, "yyyy-MM-dd", new Date());
-                                const fin = format(addMonths(dt, mem.duracion), "yyyy-MM-dd");
+                                const fin = format(
+                                  addMonths(dt, mem.duracion),
+                                  "yyyy-MM-dd"
+                                );
                                 form.setValue("fecha_fin", fin);
                               }
-                            }} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="text-sm">
-                                  <SelectValue placeholder="Selecciona una membresía" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {membresiasDisponibles.map((membresia) => (
-                                  <SelectItem key={membresia.id} value={membresia.id}>
-                                    <div className="flex flex-col">
-                                      <div className="font-medium text-sm">{membresia.nombre}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {membresia.tipo.charAt(0).toUpperCase() + membresia.tipo.slice(1)} • {membresia.modalidad.charAt(0).toUpperCase() + membresia.modalidad.slice(1)} • S/ {membresia.precio}
-                                      </div>
+                            }}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una membresía" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {membresiasDisponibles.map((membresia) => (
+                                <SelectItem key={membresia.id} value={membresia.id}>
+                                  <div className="flex flex-col py-1">
+                                    <div className="font-medium">
+                                      {membresia.nombre}
                                     </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                                    <div className="text-xs text-muted-foreground">
+                                      S/ {membresia.precio} •{" "}
+                                      {membresia.duracion
+                                        ? `${membresia.duracion} ${membresia.duracion === 1 ? "mes" : "meses"
+                                        }`
+                                        : membresia.tipo}
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="fecha_inicio"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-sm">Fecha de inicio</FormLabel>
+                            <FormLabel>Fecha de inicio *</FormLabel>
                             <FormControl>
-                              <Input type="date" className="text-sm" {...field} onChange={(e) => {
-                                field.onChange(e.target.value);
-                                const memId = form.getValues("membresia_id");
-                                const mem = membresiasDisponibles.find((m) => m.id === memId);
-                                const val = e.target.value;
-                                if (val && mem?.duracion) {
-                                  const dt = parse(val, "yyyy-MM-dd", new Date());
-                                  const fin = format(addMonths(dt, mem.duracion), "yyyy-MM-dd");
-                                  form.setValue("fecha_fin", fin);
-                                }
-                              }} />
+                              <Input
+                                type="date"
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e.target.value);
+                                  const memId = form.getValues("membresia_id");
+                                  const mem = membresiasDisponibles.find(
+                                    (m) => m.id === memId
+                                  );
+                                  const val = e.target.value;
+                                  if (val && mem?.duracion) {
+                                    const dt = parse(val, "yyyy-MM-dd", new Date());
+                                    const fin = format(
+                                      addMonths(dt, mem.duracion),
+                                      "yyyy-MM-dd"
+                                    );
+                                    form.setValue("fecha_fin", fin);
+                                  }
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -538,85 +688,250 @@ export function ClienteForm({
                         name="fecha_fin"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-sm">Fecha de vencimiento</FormLabel>
+                            <FormLabel>Fecha de vencimiento</FormLabel>
                             <FormControl>
-                              <Input type="date" className="text-sm" {...field} readOnly disabled />
+                              <Input
+                                type="date"
+                                {...field}
+                                readOnly
+                                className="bg-muted"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <p className="text-xs text-muted-foreground">
+                              Calculada automáticamente
+                            </p>
                           </FormItem>
                         )}
                       />
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
+            )}
 
-              <TabsContent value="acceso" className="space-y-6">
+            {/* Paso 3: Revisión */}
+            {(clienteActual || currentStep === 3) && (
+              <div className={currentStep === 3 || clienteActual ? "block" : "hidden"}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Acceso</CardTitle>
-                    <CardDescription>Cuenta, contraseña y código QR</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileCheck className="h-5 w-5" />
+                      Revisión y Confirmación
+                    </CardTitle>
+                    <CardDescription>
+                      Verifica los datos antes de guardar
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-rows-2 gap-4">
-                      <div className="space-y-3">
-                        <FormItem>
-                          <FormLabel className="text-sm">DNI (para cuenta)</FormLabel>
-                          <FormControl>
-                            <Input className="text-sm" value={form.getValues("dni")} readOnly />
-                          </FormControl>
-                        </FormItem>
-                        <FormItem>
-                          <FormLabel className="text-sm">Contraseña temporal</FormLabel>
-                          <div className="flex gap-2">
-                            <Input className="text-sm" type={showPassword ? "text" : "password"} value={tempPassword} readOnly />
-                            <Button type="button" variant="secondary" onClick={() => setShowPassword((s) => !s)}>
+                  <CardContent className="space-y-6">
+                    {/* Resumen de datos personales */}
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Datos Personales
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Nombre:</span>
+                          <p className="font-medium">
+                            {form.getValues("nombre") || "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">DNI:</span>
+                          <p className="font-medium">
+                            {form.getValues("dni") || "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Teléfono:</span>
+                          <p className="font-medium">
+                            {form.getValues("telefono") || "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">
+                            Fecha de nacimiento:
+                          </span>
+                          <p className="font-medium">
+                            {form.getValues("fecha_nacimiento")
+                              ? format(
+                                parse(
+                                  form.getValues("fecha_nacimiento"),
+                                  "yyyy-MM-dd",
+                                  new Date()
+                                ),
+                                "dd/MM/yyyy"
+                              )
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Resumen de membresía */}
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" />
+                        Membresía
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Plan:</span>
+                          <p className="font-medium">
+                            {membresiasDisponibles.find(
+                              (m) => m.id === form.getValues("membresia_id")
+                            )?.nombre || "No seleccionado"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Precio:</span>
+                          <p className="font-medium">
+                            S/{" "}
+                            {membresiasDisponibles.find(
+                              (m) => m.id === form.getValues("membresia_id")
+                            )?.precio || "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Inicio:</span>
+                          <p className="font-medium">
+                            {form.getValues("fecha_inicio")
+                              ? format(
+                                parse(
+                                  form.getValues("fecha_inicio") || "",
+                                  "yyyy-MM-dd",
+                                  new Date()
+                                ),
+                                "dd/MM/yyyy"
+                              )
+                              : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">
+                            Vencimiento:
+                          </span>
+                          <p className="font-medium">
+                            {form.getValues("fecha_fin")
+                              ? format(
+                                parse(
+                                  form.getValues("fecha_fin") || "",
+                                  "yyyy-MM-dd",
+                                  new Date()
+                                ),
+                                "dd/MM/yyyy"
+                              )
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Información de acceso */}
+                    <div className="bg-muted/50 p-4 rounded-lg">
+                      <h4 className="font-semibold mb-2">Información de Acceso</h4>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Email:</span>
+                          <p className="font-mono">{form.getValues("email")}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">
+                            Contraseña temporal:
+                          </span>
+                          <div className="flex gap-2 mt-1">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              value={tempPassword}
+                              readOnly
+                              className="font-mono bg-background"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
                               {showPassword ? "Ocultar" : "Mostrar"}
                             </Button>
-                            <Button type="button" variant="outline" onClick={copyPassword}>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={copyPassword}
+                            >
                               Copiar
                             </Button>
-                            <Button type="button" onClick={generatePassword}>
-                              Generar
+                          </div>
+                          {!tempPassword && (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              onClick={generatePassword}
+                              className="mt-1 px-0"
+                            >
+                              Generar contraseña
                             </Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">Comparte esta contraseña temporal por WhatsApp o email. No se almacena en el sistema.</p>
-                        </FormItem>
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm mb-2">Código QR de asistencia</p>
-                        {clienteActual ? (
-                          <div className="mt-1 flex items-center gap-4">
-                            <div className="bg-white p-3 rounded-md inline-block">
-                              <QRCode value={`CLIENT:${clienteActual.id}`} size={128} />
-                            </div>
-                            <p className="text-xs text-muted-foreground max-w-[220px]">
-                              Escanea este QR en la pantalla de Asistencia para registrar la entrada.
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            Guarda el cliente para generar su QR.
-                          </p>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </Tabs>
-
-            <DialogFooter className="flex-col gap-4">
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-0 sm:items-center sm:justify-end">
-                <DialogClose asChild>
-                  <Button type="button" variant="outline" className="w-full sm:w-auto text-sm">
-                    Cancelar
-                  </Button>
-                </DialogClose>
-                <Button type="submit" className="w-full sm:w-auto text-sm" disabled={form.formState.isSubmitting}>
-                  {clienteActual ? "Actualizar" : "Guardar"}
-                </Button>
               </div>
+            )}
+
+            {/* Navigation Buttons */}
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              {!clienteActual && currentStep > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={prevStep}
+                  className="w-full sm:w-auto"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Anterior
+                </Button>
+              )}
+
+              <div className="flex-1" />
+
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  Cancelar
+                </Button>
+              </DialogClose>
+
+              {!clienteActual && currentStep < totalSteps && (
+                <Button
+                  type="button"
+                  onClick={nextStep}
+                  className="w-full sm:w-auto"
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              )}
+
+              {(clienteActual || currentStep === totalSteps) && (
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={form.formState.isSubmitting}
+                >
+                  {form.formState.isSubmitting
+                    ? "Guardando..."
+                    : clienteActual
+                      ? "Actualizar"
+                      : "Guardar Cliente"}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         </Form>
