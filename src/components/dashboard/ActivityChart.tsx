@@ -10,44 +10,29 @@ import {
   CartesianGrid,
 } from "recharts";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 
 export function ActivityChart() {
   const labels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
   const [data, setData] = useState(labels.map((name) => ({ name, asistencias: 0 })));
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchWeekly = async () => {
-      const now = new Date();
-      const monday = new Date(now);
-      const day = monday.getDay(); // 0=Dom, 1=Lun, ... 6=Sáb
-      const diffToMonday = (day + 6) % 7; // convierte getDay a índice Lunes=0
-      monday.setDate(monday.getDate() - diffToMonday);
-      monday.setHours(0, 0, 0, 0);
+      try {
+        setLoading(true);
+        const response = await fetch('/api/dashboard/asistencias-semanales');
 
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
+        if (!response.ok) {
+          throw new Error('Error al cargar asistencias semanales');
+        }
 
-      const { data: rows, error } = await supabase
-        .from("asistencias")
-        .select("id, fecha_asistencia")
-        .gte("fecha_asistencia", monday.toISOString())
-        .lte("fecha_asistencia", sunday.toISOString());
-
-      if (error) {
-        console.error("Error cargando asistencias semanales:", error.message);
-        return;
+        const weeklyData = await response.json();
+        setData(weeklyData);
+      } catch (error) {
+        console.error("Error cargando asistencias semanales:", error);
+      } finally {
+        setLoading(false);
       }
-
-      const counts = Array(7).fill(0);
-      for (const r of rows || []) {
-        const d = new Date(r.fecha_asistencia);
-        const idx = (d.getDay() + 6) % 7; // Lunes=0 ... Domingo=6
-        counts[idx] += 1;
-      }
-
-      setData(labels.map((name, i) => ({ name, asistencias: counts[i] })));
     };
 
     fetchWeekly();

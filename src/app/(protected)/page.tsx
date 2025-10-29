@@ -10,8 +10,6 @@ import { ActivityChart } from "@/components/dashboard/ActivityChart";
 import { PaymentStatusPanel } from "@/components/dashboard/PaymentStatusPanel";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { format } from "date-fns";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -20,49 +18,24 @@ export default function Dashboard() {
     clasesHoy: 0,
     ingresosHoy: 0,
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const todayStr = format(new Date(), "yyyy-MM-dd");
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
+        setLoading(true);
+        const response = await fetch('/api/dashboard/stats');
 
-        const { count: clientesCount } = await supabase
-          .from("clientes")
-          .select("*", { count: "exact", head: true });
+        if (!response.ok) {
+          throw new Error('Error al cargar estadísticas');
+        }
 
-        const { count: asistenciasCount } = await supabase
-          .from("asistencias")
-          .select("*", { count: "exact", head: true })
-          .gte("fecha_asistencia", start.toISOString())
-          .lt("fecha_asistencia", end.toISOString());
-
-        const { count: clasesCount } = await supabase
-          .from("eventos")
-          .select("*", { count: "exact", head: true })
-          .eq("tipo", "clase")
-          .eq("fecha", todayStr);
-
-        const { data: eventosHoy } = await supabase
-          .from("eventos")
-          .select("precio, estado, fecha")
-          .eq("fecha", todayStr);
-
-        const ingresosSuma = (eventosHoy || [])
-          .filter((e: any) => e.estado !== "cancelado")
-          .reduce((sum: number, e: any) => sum + (e.precio ?? 0), 0);
-
-        setStats({
-          totalClientes: clientesCount || 0,
-          asistenciasHoy: asistenciasCount || 0,
-          clasesHoy: clasesCount || 0,
-          ingresosHoy: ingresosSuma || 0,
-        });
+        const data = await response.json();
+        setStats(data);
       } catch (error) {
         console.error("Error al cargar métricas del dashboard:", error);
+      } finally {
+        setLoading(false);
       }
     };
 

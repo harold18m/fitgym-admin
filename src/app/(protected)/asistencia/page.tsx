@@ -28,13 +28,29 @@ import {
   UserCheck,
   Clock,
   Calendar,
-  CheckCircle,
-  XCircle,
   Camera,
-  CameraOff
+  CameraOff,
+  Maximize2,
+  Minimize2,
+  X
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import type { Database } from "@/lib/supabase";
+import { useAsistencias, type AsistenciaConCliente } from "@/hooks/useAsistencias";
+
+interface Cliente {
+  id: string;
+  nombre: string;
+  dni: string | null;
+  email: string;
+  telefono: string;
+  fecha_nacimiento: Date | string;
+  membresia_id: string | null;
+  nombre_membresia: string | null;
+  tipo_membresia: string | null;
+  fecha_inicio: Date | string | null;
+  fecha_fin: Date | string | null;
+  estado: string;
+  avatar_url: string | null;
+}
 
 
 const estadoStyle = {
@@ -44,10 +60,10 @@ const estadoStyle = {
 };
 
 // Estado de membresía (verde/rojo) como en Acceso
-const getStatus = (fechaFin: string | null): 'activa' | 'por_vencer' | 'vencida' => {
+const getStatus = (fechaFin: string | Date | null): 'activa' | 'por_vencer' | 'vencida' => {
   if (!fechaFin) return 'activa';
   const today = new Date();
-  const end = new Date(fechaFin);
+  const end = typeof fechaFin === 'string' ? new Date(fechaFin) : fechaFin;
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const startOfEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
   const diffDays = Math.ceil((startOfEnd.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
@@ -56,7 +72,7 @@ const getStatus = (fechaFin: string | null): 'activa' | 'por_vencer' | 'vencida'
   return 'activa';
 };
 
-const getStatusBadge = (fechaFin: string | null) => {
+const getStatusBadge = (fechaFin: string | Date | null) => {
   const status = getStatus(fechaFin);
   const text = status === 'activa' ? 'ACTIVO' : status === 'por_vencer' ? 'POR VENCER' : 'VENCIDO';
   const variant = status === 'vencida' ? 'destructive' : 'secondary';
@@ -67,12 +83,14 @@ const getStatusBadge = (fechaFin: string | null) => {
 export default function Asistencia() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dniInput, setDniInput] = useState("");
-  const [clientes, setClientes] = useState<Database["public"]["Tables"]["clientes"]["Row"][]>([]);
-  const [asistencias, setAsistencias] = useState<Database["public"]["Tables"]["asistencias"]["Row"][]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [asistencias, setAsistencias] = useState<AsistenciaConCliente[]>([]);
   const [modoAsistencia, setModoAsistencia] = useState<"qr" | "dni">("dni");
   const [qrManual, setQrManual] = useState("");
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { toast } = useToast();
+  const { fetchAsistencias, registrarAsistencia: registrarAsistenciaAPI, isLoading } = useAsistencias();
 
   // Escáner QR (carga dinámica en cliente)
   const QrScanner = dynamic(
@@ -86,72 +104,36 @@ export default function Asistencia() {
   }, []);
 
   const loadClientes = async () => {
-    const { data, error } = await supabase
-      .from("clientes")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
+    try {
+      const response = await fetch('/api/clientes');
+      if (!response.ok) {
+        throw new Error('Error al cargar clientes');
+      }
+      const data = await response.json();
+      setClientes(data);
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error cargando clientes",
         description: error.message,
       });
-      return;
     }
-
-    const clientesBase = (data || []) as Database["public"]["Tables"]["clientes"]["Row"][];
-
-    // Si no hay nombre_membresia/tipo_membresia, intentar enriquecer usando la relación membresia_id
-    const membresiaIds = Array.from(
-      new Set(
-        clientesBase
-          .map((c) => c.membresia_id)
-          .filter((id): id is string => Boolean(id))
-      )
-    );
-
-    if (membresiaIds.length > 0) {
-      const { data: membresiasData, error: membresiasError } = await supabase
-        .from("membresias")
-        .select("id, nombre, tipo")
-        .in("id", membresiaIds);
-
-      if (!membresiasError && membresiasData) {
-        const mapaMembresias = new Map(membresiasData.map((m) => [m.id, m]));
-        const enriquecidos: Database["public"]["Tables"]["clientes"]["Row"][] = clientesBase.map((c) => {
-          const m = c.membresia_id ? mapaMembresias.get(c.membresia_id) : undefined;
-          return {
-            ...c,
-            nombre_membresia: c.nombre_membresia ?? (m ? m.nombre : null),
-            tipo_membresia: c.tipo_membresia ?? (m ? m.tipo : null),
-          } as Database["public"]["Tables"]["clientes"]["Row"];
-        });
-        setClientes(enriquecidos);
-        return;
-      }
-    }
-
-    setClientes(clientesBase);
   };
 
   const loadAsistencias = async () => {
-    const { data, error } = await supabase
-      .from("asistencias")
-      .select("*")
-      .order("fecha_asistencia", { ascending: false })
-      .limit(100);
-    if (error) {
+    try {
+      const data = await fetchAsistencias({ limit: 100 });
+      setAsistencias(data);
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error cargando asistencias",
         description: error.message,
       });
-      return;
     }
-    setAsistencias((data || []) as Database["public"]["Tables"]["asistencias"]["Row"][]);
   };
 
-  const registrarAsistencia = async (cliente: Database["public"]["Tables"]["clientes"]["Row"], tipo: "qr" | "dni") => {
+  const registrarAsistencia = async (cliente: Cliente, tipo: "qr" | "dni") => {
     if (cliente.estado === "vencida" || cliente.estado === "suspendida") {
       toast({
         variant: "destructive",
@@ -161,67 +143,28 @@ export default function Asistencia() {
       return;
     }
 
-    const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const { data: yaHoy, error: errorCheck } = await supabase
-      .from("asistencias")
-      .select("id")
-      .eq("cliente_id", cliente.id)
-      .gte("fecha_asistencia", startOfDay.toISOString())
-      .lte("fecha_asistencia", endOfDay.toISOString());
-
-    if (errorCheck) {
-      toast({
-        variant: "destructive",
-        title: "Error de verificación",
-        description: errorCheck.message,
-      });
-      return;
-    }
-
-    if (yaHoy && yaHoy.length > 0) {
-      toast({
-        variant: "destructive",
-        title: "Registro duplicado",
-        description: `${cliente.nombre} ya registró su asistencia hoy.`,
-      });
-      return;
-    }
-
-    const { data: inserted, error: errorInsert } = await supabase
-      .from("asistencias")
-      .insert({
+    try {
+      const asistencia = await registrarAsistenciaAPI({
         cliente_id: cliente.id,
-        estado: "presente",
         notas: tipo,
-      })
-      .select("*")
-      .single();
-
-    if (errorInsert) {
-      toast({
-        variant: "destructive",
-        title: "Error registrando asistencia",
-        description: errorInsert.message,
       });
-      return;
+
+      // Actualizar lista de asistencias
+      setAsistencias((prev) => [asistencia, ...prev]);
+
+      const hora = new Date(asistencia.fecha_asistencia)
+        .toTimeString()
+        .split(" ")[0];
+      toast({
+        title: "Asistencia registrada",
+        description: `${cliente.nombre} ha registrado su asistencia a las ${hora}.`,
+      });
+
+      setDniInput("");
+    } catch (error: any) {
+      // El error ya fue manejado en el hook
+      console.error('Error registrando asistencia:', error);
     }
-
-    setAsistencias((prev) => (inserted ? [inserted as Database["public"]["Tables"]["asistencias"]["Row"], ...prev] : prev));
-
-    const hora = new Date(inserted?.fecha_asistencia || Date.now())
-      .toTimeString()
-      .split(" ")[0];
-    toast({
-      title: "Asistencia registrada",
-      description: `${cliente.nombre} ha registrado su asistencia a las ${hora}.`,
-    });
-
-    setDniInput("");
   };
 
   const registrarPorDNI = async () => {
@@ -234,31 +177,38 @@ export default function Asistencia() {
       return;
     }
 
-    const { data: cliente, error } = await supabase
-      .from("clientes")
-      .select("*")
-      .eq("dni", dniInput)
-      .maybeSingle();
+    try {
+      // Buscar cliente por DNI en la API
+      const response = await fetch(`/api/clientes/validar-dni?dni=${dniInput}`);
 
-    if (error) {
+      if (!response.ok) {
+        toast({
+          variant: "destructive",
+          title: "Cliente no encontrado",
+          description: "No existe un cliente con el DNI ingresado.",
+        });
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!data.existe || !data.cliente) {
+        toast({
+          variant: "destructive",
+          title: "Cliente no encontrado",
+          description: "No existe un cliente con el DNI ingresado.",
+        });
+        return;
+      }
+
+      await registrarAsistencia(data.cliente, "dni");
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error buscando cliente",
         description: error.message,
       });
-      return;
     }
-
-    if (!cliente) {
-      toast({
-        variant: "destructive",
-        title: "Cliente no encontrado",
-        description: "No existe un cliente con el DNI ingresado.",
-      });
-      return;
-    }
-
-    await registrarAsistencia(cliente as Database["public"]["Tables"]["clientes"]["Row"], "dni");
   };
 
   const registrarPorQRTexto = async (texto: string) => {
@@ -272,45 +222,49 @@ export default function Asistencia() {
       return;
     }
 
-    let cliente: Database["public"]["Tables"]["clientes"]["Row"] | null = null;
+    let cliente: Cliente | null = null;
 
-    if (contenido.startsWith("CLIENT:")) {
-      const id = contenido.slice("CLIENT:".length);
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-      if (error) {
-        toast({ variant: "destructive", title: "Error buscando cliente", description: error.message });
+    try {
+      if (contenido.startsWith("CLIENT:")) {
+        const id = contenido.slice("CLIENT:".length);
+        const response = await fetch(`/api/clientes/${id}`);
+
+        if (response.ok) {
+          cliente = await response.json();
+        }
+      } else {
+        // Intentar buscar por DNI
+        const response = await fetch(`/api/clientes/validar-dni?dni=${contenido}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          cliente = data.existe ? data.cliente : null;
+        }
+      }
+
+      if (!cliente) {
+        toast({
+          variant: "destructive",
+          title: "Cliente no encontrado",
+          description: "El QR no coincide con ningún cliente."
+        });
         return;
       }
-      cliente = (data || null) as any;
-    } else {
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("*")
-        .eq("dni", contenido)
-        .maybeSingle();
-      if (error) {
-        toast({ variant: "destructive", title: "Error buscando cliente", description: error.message });
-        return;
-      }
-      cliente = (data || null) as any;
-    }
 
-    if (!cliente) {
-      toast({ variant: "destructive", title: "Cliente no encontrado", description: "El QR no coincide con ningún cliente." });
-      return;
+      await registrarAsistencia(cliente, "qr");
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error buscando cliente",
+        description: error.message
+      });
     }
-
-    await registrarAsistencia(cliente, "qr");
   };
 
-  // Obtener clientes de las asistencias (unir asistencias con clientes)
+  // Filtrar y procesar asistencias con sus clientes
   const clientesConAsistencia = asistencias
     .filter((asistencia) => {
-      const cliente = clientes.find((c) => c.id === asistencia.cliente_id);
+      const cliente = asistencia.clientes;
       const nombreMatch = cliente?.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
       const dniMatch = (cliente?.dni || "").includes(searchTerm);
       const fechaMatch = new Date(asistencia.fecha_asistencia)
@@ -319,7 +273,6 @@ export default function Asistencia() {
       return Boolean(nombreMatch || dniMatch || fechaMatch);
     })
     .map((asistencia) => {
-      const cliente = clientes.find((c) => c.id === asistencia.cliente_id);
       const fecha = new Date(asistencia.fecha_asistencia);
       const hora = fecha.toTimeString().split(" ")[0];
       const tipo = asistencia.notas === "qr" ? "qr" : "dni";
@@ -330,9 +283,152 @@ export default function Asistencia() {
           hora,
           tipo,
         },
-        cliente,
+        cliente: asistencia.clientes,
       };
     });
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  // Componente de Registro en modo normal o fullscreen
+  const RegistroAsistenciaCard = () => (
+    <Card className={isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Registro de Asistencia</CardTitle>
+            <CardDescription>
+              Selecciona el método de verificación
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          >
+            {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className={isFullscreen ? "flex justify-center" : ""}>
+        <div className={`space-y-4 ${isFullscreen ? "w-full max-w-2xl" : ""}`}>
+          <div className="flex space-x-2">
+            <Button
+              variant={modoAsistencia === "dni" ? "default" : "outline"}
+              className="flex-1"
+              onClick={() => setModoAsistencia("dni")}
+            >
+              <UserCheck className="mr-2 h-4 w-4" />
+              Por DNI
+            </Button>
+            <Button
+              variant={modoAsistencia === "qr" ? "default" : "outline"}
+              className="flex-1"
+              onClick={() => setModoAsistencia("qr")}
+            >
+              <QrCode className="mr-2 h-4 w-4" />
+              Por QR
+            </Button>
+          </div>
+
+          {modoAsistencia === "dni" ? (
+            <div className="space-y-4">
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Ingresa el número de DNI"
+                  value={dniInput}
+                  onChange={(e) => setDniInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      registrarPorDNI();
+                    }
+                  }}
+                  className={isFullscreen ? "text-lg py-4" : ""}
+                />
+                <Button onClick={registrarPorDNI} disabled={isLoading} className={isFullscreen ? "px-6" : ""}>
+                  Verificar
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Ingresa el DNI del cliente y presiona Verificar para registrar su asistencia.
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Button
+                  variant={cameraEnabled ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setCameraEnabled((v) => !v)}
+                >
+                  {cameraEnabled ? (
+                    <>
+                      <CameraOff className="mr-2 h-4 w-4" />
+                      Desactivar cámara
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="mr-2 h-4 w-4" />
+                      Activar cámara
+                    </>
+                  )}
+                </Button>
+              </div>
+              {cameraEnabled && (
+                <div className="rounded-md border overflow-hidden">
+                  <QrScanner
+                    constraints={{ facingMode: "environment" }}
+                    scanDelay={500}
+                    onScan={(detected) => {
+                      const text = detected?.[0]?.rawValue || "";
+                      if (text) {
+                        registrarPorQRTexto(text);
+                      }
+                    }}
+                    onError={() => {
+                      /* Silencio errores menores de cámara */
+                    }}
+                    styles={{ container: { width: "100%", aspectRatio: isFullscreen ? "16/9" : "16/9" } }}
+                  />
+                </div>
+              )}
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Pega el contenido del QR o DNI"
+                  value={qrManual}
+                  onChange={(e) => setQrManual(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      registrarPorQRTexto(qrManual);
+                    }
+                  }}
+                  className={isFullscreen ? "text-lg py-4" : ""}
+                />
+                <Button onClick={() => registrarPorQRTexto(qrManual)} disabled={isLoading} className={isFullscreen ? "px-6" : ""}>
+                  Verificar
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Escanea el código QR del cliente con la cámara o pega su contenido manualmente.
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl">
+          <RegistroAsistenciaCard />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -344,101 +440,7 @@ export default function Asistencia() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Registro de Asistencia</CardTitle>
-            <CardDescription>
-              Selecciona el método de verificación
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex space-x-2">
-              <Button
-                variant={modoAsistencia === "dni" ? "default" : "outline"}
-                className="flex-1"
-                onClick={() => setModoAsistencia("dni")}
-              >
-                <UserCheck className="mr-2 h-4 w-4" />
-                Por DNI
-              </Button>
-              <Button
-                variant={modoAsistencia === "qr" ? "default" : "outline"}
-                className="flex-1"
-                onClick={() => setModoAsistencia("qr")}
-              >
-                <QrCode className="mr-2 h-4 w-4" />
-                Por QR
-              </Button>
-            </div>
-
-            {modoAsistencia === "dni" ? (
-              <div className="space-y-4">
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder="Ingresa el número de DNI"
-                    value={dniInput}
-                    onChange={(e) => setDniInput(e.target.value)}
-                  />
-                  <Button onClick={registrarPorDNI}>Verificar</Button>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Ingresa el DNI del cliente y presiona Verificar para registrar su asistencia.
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <Button
-                    variant={cameraEnabled ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setCameraEnabled((v) => !v)}
-                  >
-                    {cameraEnabled ? (
-                      <>
-                        <CameraOff className="mr-2 h-4 w-4" />
-                        Desactivar cámara
-                      </>
-                    ) : (
-                      <>
-                        <Camera className="mr-2 h-4 w-4" />
-                        Activar cámara
-                      </>
-                    )}
-                  </Button>
-                </div>
-                {cameraEnabled && (
-                  <div className="rounded-md border overflow-hidden">
-                    <QrScanner
-                      constraints={{ facingMode: "environment" }}
-                      scanDelay={500}
-                      onScan={(detected) => {
-                        const text = detected?.[0]?.rawValue || "";
-                        if (text) {
-                          registrarPorQRTexto(text);
-                        }
-                      }}
-                      onError={() => {
-                        /* Silencio errores menores de cámara */
-                      }}
-                      styles={{ container: { width: "100%", aspectRatio: "16/9" } }}
-                    />
-                  </div>
-                )}
-                <div className="flex space-x-2">
-                  <Input
-                    placeholder="Pega el contenido del QR o DNI"
-                    value={qrManual}
-                    onChange={(e) => setQrManual(e.target.value)}
-                  />
-                  <Button onClick={() => registrarPorQRTexto(qrManual)}>Verificar</Button>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Escanea el código QR del cliente con la cámara o pega su contenido manualmente.
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <RegistroAsistenciaCard />
 
         <Card>
           <CardHeader>
