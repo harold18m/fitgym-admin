@@ -7,8 +7,8 @@ import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 import { resolve } from 'path'
 
-// Cargar variables de entorno desde .env.local
-config({ path: resolve(process.cwd(), '.env.local') })
+// Cargar variables de entorno desde .env
+config({ path: resolve(process.cwd(), '.env') })
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -20,7 +20,7 @@ console.log('')
 
 if (!supabaseUrl || !supabaseAnonKey) {
     console.error('❌ Error: Variables de entorno no configuradas')
-    console.error('Asegúrate de tener NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local')
+    console.error('Asegúrate de tener NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env')
     process.exit(1)
 }
 

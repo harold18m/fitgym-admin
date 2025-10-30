@@ -108,8 +108,22 @@ export async function POST(request: Request) {
         });
 
         if (asistenciaHoy) {
+            const horaAsistencia = new Date(asistenciaHoy.fecha_asistencia)
+                .toLocaleTimeString('es-ES', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            
             return NextResponse.json(
-                { error: 'El cliente ya registró su asistencia hoy' },
+                { 
+                    error: 'El cliente ya registró su asistencia hoy',
+                    details: `Asistencia registrada a las ${horaAsistencia}`,
+                    asistencia_existente: {
+                        id: asistenciaHoy.id,
+                        fecha_asistencia: asistenciaHoy.fecha_asistencia,
+                        hora: horaAsistencia
+                    }
+                },
                 { status: 400 }
             );
         }

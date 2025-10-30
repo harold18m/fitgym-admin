@@ -175,8 +175,16 @@ export default function Asistencia() {
 
       setDniInput("");
     } catch (error: any) {
-      // El error ya fue manejado en el hook
+      // El error ya fue manejado en el hook, pero podemos agregar lógica específica aquí
       console.error('Error registrando asistencia:', error);
+      
+      // Para el QR scanner, limpiar el estado si hay error de asistencia duplicada
+      if (tipo === "qr" && error.message.includes('ya registró su asistencia hoy')) {
+        setLastRegisteredClient(`${cliente.nombre} - Ya registrado hoy`);
+        setTimeout(() => {
+          setLastRegisteredClient(null);
+        }, 5000);
+      }
     }
   };
 

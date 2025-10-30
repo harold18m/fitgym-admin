@@ -10,7 +10,10 @@ export async function GET(
 ) {
     try {
         const cliente = await prisma.clientes.findUnique({
-            where: { id: params.id },
+            where: { 
+                id: params.id,
+                deleted_at: null // Solo clientes no eliminados
+            },
             include: {
                 membresias: {
                     select: {
@@ -71,7 +74,10 @@ export async function PUT(
         if (body.estado !== undefined) updateData.estado = body.estado as EstadoCliente;
 
         const cliente = await prisma.clientes.update({
-            where: { id: params.id },
+            where: { 
+                id: params.id,
+                deleted_at: null // Solo actualizar clientes no eliminados
+            },
             data: updateData,
             include: {
                 membresias: {
@@ -94,21 +100,64 @@ export async function PUT(
     }
 }
 
-// DELETE - Eliminar un cliente
+// DELETE - Eliminación lógica de un cliente (soft delete)
 export async function DELETE(
     request: Request,
     { params }: { params: { id: string } }
 ) {
     try {
-        await prisma.clientes.delete({
-            where: { id: params.id },
+        const clienteId = params.id;
+
+        // Verificar que el cliente existe y no está ya eliminado
+        const cliente = await prisma.clientes.findUnique({
+            where: { 
+                id: clienteId,
+                deleted_at: null // Solo clientes no eliminados
+            },
         });
 
-        return NextResponse.json({ success: true });
-    } catch (error) {
+        if (!cliente) {
+            return NextResponse.json(
+                { error: 'Cliente no encontrado o ya eliminado' },
+                { status: 404 }
+            );
+        }
+
+        // Realizar eliminación lógica
+        const clienteEliminado = await prisma.clientes.update({
+            where: { id: clienteId },
+            data: { 
+                deleted_at: new Date(),
+                // Opcional: cambiar estado a inactivo
+                estado: 'suspendida'
+            },
+        });
+
+        return NextResponse.json({ 
+            success: true,
+            message: 'Cliente eliminado correctamente',
+            cliente: {
+                id: clienteEliminado.id,
+                nombre: clienteEliminado.nombre,
+                deleted_at: clienteEliminado.deleted_at
+            }
+        });
+    } catch (error: any) {
         console.error('Error al eliminar cliente:', error);
+        
+        // Manejar errores específicos de Prisma
+        if (error.code === 'P2025') {
+            return NextResponse.json(
+                { error: 'Cliente no encontrado' },
+                { status: 404 }
+            );
+        }
+        
         return NextResponse.json(
-            { error: 'Error al eliminar cliente' },
+            { 
+                error: 'Error al eliminar cliente',
+                details: error.message 
+            },
             { status: 500 }
         );
     }

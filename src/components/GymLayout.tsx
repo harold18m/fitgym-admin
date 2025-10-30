@@ -16,72 +16,42 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/app/providers';
-import { useState, useEffect } from 'react';
-import { format, isToday, isTomorrow, addHours } from 'date-fns';
+import { useState } from 'react';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { supabase } from "@/lib/supabase";
 
 export function GymLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { logout, user } = useAuth();
 
-  // Estado para eventos próximos
-  const [eventosProximos, setEventosProximos] = useState<any[]>([]);
+  // Estado para notificaciones
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
 
-  // Función para obtener eventos de las próximas 24 horas desde Supabase
-  const obtenerEventosProximos = async () => {
-    try {
-      const ahora = new Date();
-      const en24Horas = addHours(ahora, 24);
-      const desdeStr = format(ahora, 'yyyy-MM-dd');
-      const hastaStr = format(en24Horas, 'yyyy-MM-dd');
-
-      const { data, error } = await supabase
-        .from('eventos')
-        .select('id, titulo, fecha, hora, tipo, cliente_nombre, entrenador, duracion')
-        .gte('fecha', desdeStr)
-        .lte('fecha', hastaStr)
-        .order('fecha', { ascending: true })
-        .order('hora', { ascending: true });
-
-      if (error) {
-        console.error('Error cargando eventos próximos:', error);
-        setEventosProximos([]);
-        return;
-      }
-
-      const mapped = (data || []).map((e: any) => {
-        const [h, m] = (e.hora || '00:00').split(':').map(Number);
-        const parts = (e.fecha || '').split('-').map(Number);
-        // fecha en formato yyyy-MM-dd
-        const fechaDate = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1, h || 0, m || 0);
-        return {
-          id: e.id,
-          titulo: e.titulo,
-          fecha: fechaDate,
-          tipo: e.tipo,
-          cliente: e.cliente_nombre || undefined,
-          entrenador: e.entrenador || undefined,
-          duracion: e.duracion || undefined,
-        };
-      });
-
-      // Filtramos para que queden solo los próximos 24h exactos por si hay eventos fuera del rango horario del mismo día
-      const eventosFiltrados = mapped.filter(ev => ev.fecha >= ahora && ev.fecha <= en24Horas);
-      setEventosProximos(eventosFiltrados);
-    } catch (err) {
-      console.error('Error conectando con Supabase:', err);
-      setEventosProximos([]);
+  // Datos estáticos de eventos próximos (maquetado)
+  const eventosProximos = [
+    {
+      id: '1',
+      titulo: 'Entrenamiento Personal - Juan Pérez',
+      tipo: 'entrenamiento',
+      fecha: new Date(Date.now() + 30 * 60 * 1000), // En 30 minutos
+      cliente: 'Juan Pérez',
+      entrenador: 'Carlos Mendoza'
+    },
+    {
+      id: '2',
+      titulo: 'Clase de Yoga Matutina',
+      tipo: 'clase',
+      fecha: new Date(Date.now() + 2 * 60 * 60 * 1000), // En 2 horas
+      entrenador: 'María López'
+    },
+    {
+      id: '3',
+      titulo: 'Sesión de Crossfit',
+      tipo: 'clase',
+      fecha: new Date(Date.now() + 4 * 60 * 60 * 1000), // En 4 horas
+      entrenador: 'Roberto Sánchez'
     }
-  };
-
-  useEffect(() => {
-    obtenerEventosProximos();
-    // Actualizar cada 5 minutos
-    const interval = setInterval(obtenerEventosProximos, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  ];
 
   const obtenerTiempoRelativo = (fecha: Date) => {
     const ahora = new Date();

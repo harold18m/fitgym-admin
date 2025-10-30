@@ -81,7 +81,11 @@ export function useAsistencias() {
             const result = await response.json();
 
             if (!response.ok) {
-                throw new Error(result.error || 'Error al registrar asistencia');
+                // Crear un error con información adicional
+                const error = new Error(result.error || 'Error al registrar asistencia');
+                (error as any).details = result.details;
+                (error as any).asistencia_existente = result.asistencia_existente;
+                throw error;
             }
 
             toast({
@@ -91,10 +95,30 @@ export function useAsistencias() {
 
             return result;
         } catch (error: any) {
+            // Manejo específico para diferentes tipos de errores
+            let title = 'Error al registrar asistencia';
+            let description = error.message;
+
+            if (error.message.includes('ya registró su asistencia hoy')) {
+                title = 'Asistencia ya registrada';
+                // Usar información adicional del error si está disponible
+                if ((error as any).details) {
+                    description = `Este cliente ya registró su asistencia hoy. ${(error as any).details}`;
+                } else {
+                    description = 'Este cliente ya registró su asistencia el día de hoy.';
+                }
+            } else if (error.message.includes('membresía del cliente no está activa')) {
+                title = 'Membresía inactiva';
+                description = 'La membresía de este cliente no está activa.';
+            } else if (error.message.includes('Cliente no encontrado')) {
+                title = 'Cliente no encontrado';
+                description = 'No se encontró un cliente con los datos proporcionados.';
+            }
+
             toast({
                 variant: 'destructive',
-                title: 'Error al registrar asistencia',
-                description: error.message,
+                title,
+                description,
             });
             throw error;
         } finally {

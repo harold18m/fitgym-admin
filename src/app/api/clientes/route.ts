@@ -11,13 +11,18 @@ export async function GET(request: Request) {
 
         const where = q
             ? {
-                OR: [
-                    { nombre: { contains: q, mode: 'insensitive' as const } },
-                    { email: { contains: q, mode: 'insensitive' as const } },
-                    { dni: { contains: q, mode: 'insensitive' as const } },
+                AND: [
+                    { deleted_at: null }, // Excluir clientes eliminados lógicamente
+                    {
+                        OR: [
+                            { nombre: { contains: q, mode: 'insensitive' as const } },
+                            { email: { contains: q, mode: 'insensitive' as const } },
+                            { dni: { contains: q, mode: 'insensitive' as const } },
+                        ],
+                    },
                 ],
             }
-            : {};
+            : { deleted_at: null }; // Excluir clientes eliminados lógicamente
 
         const clientes = await prisma.clientes.findMany({
             where,
