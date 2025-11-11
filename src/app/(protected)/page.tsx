@@ -8,6 +8,7 @@ import {
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActivityChart } from "@/components/dashboard/ActivityChart";
 import { PaymentStatusPanel } from "@/components/dashboard/PaymentStatusPanel";
+import { authenticatedGet } from "@/lib/fetch-utils";
 
 import { useEffect, useState } from "react";
 
@@ -24,13 +25,7 @@ export default function Dashboard() {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/dashboard/stats');
-
-        if (!response.ok) {
-          throw new Error('Error al cargar estadísticas');
-        }
-
-        const data = await response.json();
+        const data = await authenticatedGet<typeof stats>('/api/dashboard/stats');
         setStats(data);
       } catch (error) {
         console.error("Error al cargar métricas del dashboard:", error);

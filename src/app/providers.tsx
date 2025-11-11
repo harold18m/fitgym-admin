@@ -1,72 +1,24 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { ReactNode, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { supabase } from "@/lib/supabase";
-import type { Session, User } from "@supabase/supabase-js";
+import { useAuthStore } from "@/stores/authStore";
 
-interface AuthContextType {
-  isAuthenticated: boolean;
-  user: User | null;
-  session: Session | null;
-  login: () => void;
-  logout: () => void;
-}
-
-const AuthContext = createContext<AuthContextType>({
-  isAuthenticated: false,
-  user: null,
-  session: null,
-  login: () => { },
-  logout: () => { },
-});
-
-export const useAuth = () => useContext(AuthContext);
-
-// Configurar QueryClient con opciones por defecto
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000, // 30 segundos
-      refetchOnWindowFocus: false,
-      retry: 1,
+      staleTime: 60 * 1000,
     },
   },
 });
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-
-  const login = () => {
-    try {
-      localStorage.setItem("fitgym-auth", "true");
-    } catch (e) {
-      console.error("Error escribiendo fitgym-auth en localStorage", e);
-    }
-    setIsAuthenticated(true);
-  };
-
-  const logout = () => {
-    try {
-      localStorage.removeItem("fitgym-auth");
-    } catch (e) {
-      console.error("Error eliminando fitgym-auth de localStorage", e);
-    }
-    supabase.auth
-      .signOut()
-      .catch(() => { })
-      .finally(() => {
-        setIsAuthenticated(false);
-        setSession(null);
-        setUser(null);
-      });
-  };
+export function Providers({ children }: { children: ReactNode }) {
+  const setSession = useAuthStore((state) => state.setSession);
 
   useEffect(() => {
     // Obtener sesión inicial
@@ -74,34 +26,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       try {
         const { data } = await supabase.auth.getSession();
         setSession(data.session ?? null);
-        setUser(data.session?.user ?? null);
-        setIsAuthenticated(!!data.session);
       } catch (e) {
-        // Si falla, caer a localStorage para modo desarrollo
-        console.warn("Fallo obteniendo la sesión de Supabase; usando localStorage como fallback", e);
-        try {
-          const token = localStorage.getItem("fitgym-auth");
-          setIsAuthenticated(token === "true");
-        } catch (lsErr) {
-          console.error("Error leyendo fitgym-auth de localStorage", lsErr);
-        }
+        console.warn("Fallo obteniendo la sesión de Supabase", e);
+        setSession(null);
       }
     })();
 
     // Suscribirse a cambios de auth
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
-      setUser(newSession?.user ?? null);
-      setIsAuthenticated(!!newSession);
-      try {
-        if (newSession) {
-          localStorage.setItem("fitgym-auth", "true");
-        } else {
-          localStorage.removeItem("fitgym-auth");
-        }
-      } catch (e) {
-        console.error("Error actualizando la bandera fitgym-auth en localStorage", e);
-      }
     });
 
     return () => {
@@ -111,19 +44,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
         console.warn("Error anulando la suscripción de cambios de auth", e);
       }
     };
-  }, []);
+  }, [setSession]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, session, login, logout }}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          {children}
-        </TooltipProvider>
-        {/* React Query Devtools - solo visible en desarrollo */}
-        <ReactQueryDevtools initialIsOpen={false} position="bottom" />
-      </QueryClientProvider>
-    </AuthContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        {children}
+      </TooltipProvider>
+      {/* React Query Devtools - solo visible en desarrollo */}
+      <ReactQueryDevtools initialIsOpen={false} position="bottom" />
+    </QueryClientProvider>
   );
 }

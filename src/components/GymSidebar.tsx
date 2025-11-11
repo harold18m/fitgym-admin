@@ -31,7 +31,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { useAuth } from '@/app/providers';
+import { useAuth } from '@/hooks/useAuth';
 import { Logo } from '@/components/Logo';
 
 type SidebarItem = {

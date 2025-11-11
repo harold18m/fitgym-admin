@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authenticatedGet, authenticatedPost, authenticatedFetch } from "@/lib/fetch-utils";
 import {
   Dumbbell,
   Plus,
@@ -86,8 +87,7 @@ export default function Ejercicios() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/ejercicios');
-        const json = await res.json();
+        const json = await authenticatedGet<{ ejercicios: Ejercicio[] }>('/api/ejercicios');
         setEjercicios(json.ejercicios || []);
       } catch (e) {
         console.error('Error cargando ejercicios', e);
@@ -128,22 +128,13 @@ export default function Ejercicios() {
       };
       let saved: any = null;
       if (ejercicioActual) {
-        const res = await fetch(`/api/ejercicios/${ejercicioActual.id}`, {
+        saved = await authenticatedFetch(`/api/ejercicios/${ejercicioActual.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error('No se pudo actualizar');
-        saved = await res.json();
+        }).then(r => r.json());
         setEjercicios(prev => prev.map(e => e.id === saved.id ? saved : e));
       } else {
-        const res = await fetch('/api/ejercicios', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error('No se pudo crear');
-        saved = await res.json();
+        saved = await authenticatedPost('/api/ejercicios', payload);
         setEjercicios(prev => [saved, ...prev]);
       }
       setDialogoAbierto(false);
@@ -157,8 +148,7 @@ export default function Ejercicios() {
 
   const eliminarEjercicio = async (id: string) => {
     try {
-      const res = await fetch(`/api/ejercicios/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('No se pudo eliminar');
+      await authenticatedFetch(`/api/ejercicios/${id}`, { method: 'DELETE' });
       setEjercicios(prev => prev.filter(e => e.id !== id));
     } catch (e) {
       console.error(e);

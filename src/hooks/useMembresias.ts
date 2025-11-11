@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { membresias } from '@prisma/client';
+import { authenticatedGet, authenticatedPost, authenticatedFetch } from '@/lib/fetch-utils';
 
 type MembresiaInsert = Omit<membresias, 'id' | 'created_at' | 'updated_at' | 'clientes_activos'>;
 type MembresiaUpdate = Partial<MembresiaInsert>;
@@ -15,13 +16,7 @@ export const useMembresias = () => {
   const fetchMembresias = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/membresias');
-
-      if (!response.ok) {
-        throw new Error('Error al cargar membresías');
-      }
-
-      const data = await response.json();
+      const data = await authenticatedGet<membresias[]>('/api/membresias');
       setMembresias(data || []);
       setError(null);
     } catch (err) {
@@ -40,19 +35,7 @@ export const useMembresias = () => {
   // Crear nueva membresía
   const crearMembresia = async (membresia: MembresiaInsert) => {
     try {
-      const response = await fetch('/api/membresias', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(membresia),
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al crear membresía');
-      }
-
-      const data = await response.json();
+      const data = await authenticatedPost<membresias>('/api/membresias', membresia);
       setMembresias(prev => [data, ...prev]);
 
       toast({
@@ -75,11 +58,8 @@ export const useMembresias = () => {
   // Actualizar membresía
   const actualizarMembresia = async (id: string, updates: MembresiaUpdate) => {
     try {
-      const response = await fetch(`/api/membresias/${id}`, {
+      const response = await authenticatedFetch(`/api/membresias/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(updates),
       });
 
@@ -112,7 +92,7 @@ export const useMembresias = () => {
   // Eliminar membresía
   const eliminarMembresia = async (id: string) => {
     try {
-      const response = await fetch(`/api/membresias/${id}`, {
+      const response = await authenticatedFetch(`/api/membresias/${id}`, {
         method: 'DELETE',
       });
 

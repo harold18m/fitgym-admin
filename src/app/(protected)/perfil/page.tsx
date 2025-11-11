@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/app/providers";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function PerfilPage() {
   const { user } = useAuth();
@@ -22,7 +22,7 @@ export default function PerfilPage() {
           <div className="flex items-center gap-6">
             <Avatar className="h-20 w-20">
               <AvatarImage src={avatar} alt={email || nombre} />
-              <AvatarFallback>{(email || nombre || "U").slice(0,2).toUpperCase()}</AvatarFallback>
+              <AvatarFallback>{(email || nombre || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="space-y-1">
               <h2 className="text-xl font-semibold">{nombre}</h2>

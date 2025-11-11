@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Users, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { authenticatedGet } from '@/lib/fetch-utils';
 
 interface PersonaEnGym {
     id: string;
@@ -54,9 +55,7 @@ export function AforoPanel() {
 
     const fetchAforoData = async () => {
         try {
-            const response = await fetch('/api/aforo');
-            if (!response.ok) throw new Error('Error al obtener datos de aforo');
-            const data = await response.json();
+            const data = await authenticatedGet<AforoData>('/api/aforo');
             setAforoData(data);
         } catch (error: any) {
             console.error('Error fetching aforo:', error);

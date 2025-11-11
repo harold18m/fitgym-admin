@@ -1,17 +1,15 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthState {
     isAuthenticated: boolean;
-    user: {
-        id: string;
-        email: string;
-        nombre?: string;
-        rol?: string;
-    } | null;
-    login: (user: AuthState['user']) => void;
+    user: User | null;
+    session: Session | null;
+    login: (user: User, session: Session) => void;
     logout: () => void;
-    updateUser: (user: Partial<AuthState['user']>) => void;
+    updateUser: (userData: Partial<User>) => void;
+    setSession: (session: Session | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -19,15 +17,32 @@ export const useAuthStore = create<AuthState>()(
         (set) => ({
             isAuthenticated: false,
             user: null,
-            login: (user) => set({ isAuthenticated: true, user }),
-            logout: () => set({ isAuthenticated: false, user: null }),
+            session: null,
+            login: (user, session) =>
+                set({
+                    isAuthenticated: true,
+                    user,
+                    session,
+                }),
+            logout: () =>
+                set({
+                    isAuthenticated: false,
+                    user: null,
+                    session: null,
+                }),
             updateUser: (userData) =>
                 set((state) => ({
                     user: state.user ? { ...state.user, ...userData } : null,
                 })),
+            setSession: (session) =>
+                set({
+                    session,
+                    user: session?.user ?? null,
+                    isAuthenticated: !!session,
+                }),
         }),
         {
-            name: 'fitgym-auth',
+            name: "fitgym-auth",
         }
     )
 );

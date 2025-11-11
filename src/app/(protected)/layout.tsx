@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/app/providers";
+import { useAuth } from "@/hooks/useAuth";
 import { GymLayout } from "@/components/GymLayout";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {

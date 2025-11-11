@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { authenticatedGet } from '@/lib/fetch-utils';
 
 export interface Cliente {
     id: string;
@@ -25,11 +26,7 @@ export const useClientes = () => {
         const loadClientes = async () => {
             try {
                 setIsLoading(true);
-                const response = await fetch('/api/clientes');
-                if (!response.ok) {
-                    throw new Error('Error al cargar clientes');
-                }
-                const data = await response.json();
+                const data = await authenticatedGet<Cliente[]>('/api/clientes');
                 setClientes(data);
                 setError(null);
             } catch (err) {

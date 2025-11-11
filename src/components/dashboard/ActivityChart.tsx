@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { useEffect, useState } from "react";
+import { authenticatedGet } from "@/lib/fetch-utils";
 
 export function ActivityChart() {
   const labels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -20,13 +21,7 @@ export function ActivityChart() {
     const fetchWeekly = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/dashboard/asistencias-semanales');
-
-        if (!response.ok) {
-          throw new Error('Error al cargar asistencias semanales');
-        }
-
-        const weeklyData = await response.json();
+        const weeklyData = await authenticatedGet<typeof data>('/api/dashboard/asistencias-semanales');
         setData(weeklyData);
       } catch (error) {
         console.error("Error cargando asistencias semanales:", error);

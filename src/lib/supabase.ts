@@ -4,11 +4,25 @@ const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined)
 const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined) ?? ''
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  // Ayuda a detectar configuración faltante en desarrollo
-  throw new Error('Supabase no configurado: define NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local')
+    // Ayuda a detectar configuración faltante en desarrollo
+    throw new Error('Supabase no configurado: define NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Configurar Supabase para usar cookies en lugar de localStorage
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce', // Usar PKCE para mejor seguridad
+    },
+    global: {
+        headers: {
+            'X-Client-Info': 'supabase-js-web',
+        },
+    },
+})
 
 // Tipos para la base de datos
 export interface Database {

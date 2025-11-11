@@ -153,8 +153,23 @@ Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
 Si encuentras algún problema o tienes preguntas:
 
 1. Revisa la [documentación de despliegue](./DESPLIEGUE_VERCEL.md)
-2. Abre un [issue](https://github.com/tu-usuario/fitgym/issues)
-3. Consulta la [documentación de Supabase](https://supabase.com/docs)
+2. Consulta el [reporte de auditoría](./REPORTE_AUDITORIA.md)
+3. Lee la [guía del middleware](./docs/MIDDLEWARE_AUTH.md)
+4. Abre un [issue](https://github.com/tu-usuario/fitgym/issues)
+5. Consulta la [documentación de Supabase](https://supabase.com/docs)
+
+## 🔒 Seguridad
+
+Este proyecto implementa las siguientes medidas de seguridad:
+
+- ✅ **Middleware de Autenticación**: Protege todas las rutas API y páginas
+- ✅ **Validación de Tokens**: Verifica tokens de Supabase en el servidor
+- ✅ **Control de Acceso**: Solo usuarios admin pueden acceder
+- ✅ **TypeScript**: Tipos seguros en todo el código
+- ⚠️ **Rate Limiting**: Pendiente de implementar (ver REPORTE_AUDITORIA.md)
+- ⚠️ **Input Validation**: Pendiente con Zod (ver REPORTE_AUDITORIA.md)
+
+Para más detalles, consulta [REPORTE_AUDITORIA.md](./REPORTE_AUDITORIA.md)
 
 ---
 

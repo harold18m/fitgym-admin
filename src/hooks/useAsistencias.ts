@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { authenticatedGet, authenticatedPost } from '@/lib/fetch-utils';
 
 export interface AsistenciaConCliente {
     id: string;
@@ -47,14 +48,7 @@ export function useAsistencias() {
             if (params?.fecha_hasta) queryParams.append('fecha_hasta', params.fecha_hasta);
 
             const url = `/api/asistencias${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al obtener asistencias');
-            }
-
-            return await response.json();
+            return await authenticatedGet<AsistenciaConCliente[]>(url);
         } catch (error: any) {
             toast({
                 variant: 'destructive',
@@ -70,23 +64,7 @@ export function useAsistencias() {
     ): Promise<AsistenciaConCliente> => {
         setIsLoading(true);
         try {
-            const response = await fetch('/api/asistencias', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                // Crear un error con información adicional
-                const error = new Error(result.error || 'Error al registrar asistencia');
-                (error as any).details = result.details;
-                (error as any).asistencia_existente = result.asistencia_existente;
-                throw error;
-            }
+            const result = await authenticatedPost<AsistenciaConCliente>('/api/asistencias', data);
 
             toast({
                 title: 'Asistencia registrada',

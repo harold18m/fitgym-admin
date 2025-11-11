@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { authenticatedGet, authenticatedPost } from '@/lib/fetch-utils';
 import {
     Users,
     UserX,
@@ -56,9 +57,7 @@ export default function AforoPage() {
     const fetchAsistenciasPendientes = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/asistencias/salida');
-            if (!response.ok) throw new Error('Error al obtener asistencias');
-            const data = await response.json();
+            const data = await authenticatedGet<{ asistencias: AsistenciaPendiente[] }>('/api/asistencias/salida');
             setAsistenciasPendientes(data.asistencias || []);
             setFilteredAsistencias(data.asistencias || []);
         } catch (error: any) {
@@ -96,18 +95,9 @@ export default function AforoPage() {
     const registrarSalida = async (asistenciaId: string) => {
         try {
             setProcesando(true);
-            const response = await fetch('/api/asistencias/salida', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ asistencia_id: asistenciaId })
+            const data = await authenticatedPost<any>('/api/asistencias/salida', {
+                asistencia_id: asistenciaId
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al registrar salida');
-            }
-
-            const data = await response.json();
 
             toast({
                 title: 'Salida registrada',

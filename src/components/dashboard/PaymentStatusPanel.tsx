@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { authenticatedGet, authenticatedPost } from "@/lib/fetch-utils";
 
 interface ClienteItem {
   id: string;
@@ -34,9 +35,7 @@ export function PaymentStatusPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/pagos/dashboard");
-      if (!res.ok) throw new Error("Error cargando estado de pagos");
-      const json = await res.json();
+      const json = await authenticatedGet<DashboardPagosResponse>("/api/pagos/dashboard");
       setData(json);
     } catch (e: any) {
       setError(e?.message || "Error desconocido");
@@ -47,8 +46,7 @@ export function PaymentStatusPanel() {
 
   const registrarPago = async (clienteId: string) => {
     try {
-      const res = await fetch(`/api/clientes/${clienteId}/pago`, { method: "POST" });
-      if (!res.ok) throw new Error("No se pudo registrar el pago");
+      await authenticatedPost(`/api/clientes/${clienteId}/pago`, {});
       await fetchData();
     } catch (e) {
       console.error(e);
