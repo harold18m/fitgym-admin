@@ -235,19 +235,33 @@ export function RegistroAsistenciaCard() {
     };
 
     return (
-        <Card className={isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}>
-            <CardHeader>
+        <Card
+            className={`
+                ${isFullscreen
+                    ? "fixed inset-0 z-50 rounded-none bg-background flex flex-col"
+                    : ""
+                }
+                transition-all duration-300
+            `}
+        >
+            <CardHeader className={isFullscreen ? "border-b" : ""}>
                 <div className="flex items-center justify-between">
                     <div>
-                        <CardTitle>Registro de Asistencia</CardTitle>
-                        <CardDescription>
-                            Selecciona el método de verificación
+                        <CardTitle className={isFullscreen ? "text-3xl" : ""}>
+                            {isFullscreen ? "🏋️ Registro de Asistencia" : "Registro de Asistencia"}
+                        </CardTitle>
+                        <CardDescription className={isFullscreen ? "text-base mt-2" : ""}>
+                            {isFullscreen
+                                ? "Sistema de control de acceso al gimnasio"
+                                : "Selecciona el método de verificación"
+                            }
                         </CardDescription>
                     </div>
                     <Button
-                        variant="ghost"
-                        size="icon"
+                        variant={isFullscreen ? "outline" : "ghost"}
+                        size={isFullscreen ? "lg" : "icon"}
                         onClick={toggleFullscreen}
+                        className={isFullscreen ? "px-6" : ""}
                         title={
                             isFullscreen
                                 ? "Salir de pantalla completa"
@@ -255,39 +269,63 @@ export function RegistroAsistenciaCard() {
                         }
                     >
                         {isFullscreen ? (
-                            <Minimize2 className="h-5 w-5" />
+                            <>
+                                <Minimize2 className="mr-2 h-5 w-5" />
+                                Salir
+                            </>
                         ) : (
                             <Maximize2 className="h-5 w-5" />
                         )}
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent className={isFullscreen ? "flex justify-center" : ""}>
+
+            <CardContent
+                className={`
+                    ${isFullscreen
+                        ? "flex-1 flex items-center justify-center p-8 overflow-y-auto"
+                        : ""
+                    }
+                `}
+            >
                 <div
-                    className={`space-y-4 ${isFullscreen ? "w-full max-w-2xl" : ""}`}
+                    className={`
+                        space-y-6
+                        ${isFullscreen ? "w-full max-w-4xl" : ""}
+                    `}
                 >
-                    <div className="flex space-x-2">
+                    {/* Botones de modo mejorados */}
+                    <div className={`flex gap-3 ${isFullscreen ? "mb-8" : ""}`}>
                         <Button
                             variant={modoAsistencia === "dni" ? "default" : "outline"}
-                            className="flex-1"
+                            className={`
+                                flex-1 
+                                ${isFullscreen ? "h-20 text-xl" : ""}
+                                transition-all duration-200
+                            `}
                             onClick={() => setModoAsistencia("dni")}
                         >
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            Por DNI
+                            <UserCheck className={`mr-2 ${isFullscreen ? "h-6 w-6" : "h-4 w-4"}`} />
+                            Verificar por DNI
                         </Button>
                         <Button
                             variant={modoAsistencia === "qr" ? "default" : "outline"}
-                            className="flex-1"
+                            className={`
+                                flex-1 
+                                ${isFullscreen ? "h-20 text-xl" : ""}
+                                transition-all duration-200
+                            `}
                             onClick={() => setModoAsistencia("qr")}
                         >
-                            <QrCode className="mr-2 h-4 w-4" />
-                            Por QR
+                            <QrCode className={`mr-2 ${isFullscreen ? "h-6 w-6" : "h-4 w-4"}`} />
+                            Escanear QR
                         </Button>
                     </div>
 
+                    {/* Contenido por DNI */}
                     {modoAsistencia === "dni" ? (
-                        <div className="space-y-4">
-                            <div className="flex space-x-2">
+                        <div className="space-y-6">
+                            <div className={`flex gap-3 ${isFullscreen ? "flex-col sm:flex-row" : ""}`}>
                                 <Input
                                     placeholder="Ingresa el número de DNI"
                                     value={dniInput}
@@ -297,45 +335,74 @@ export function RegistroAsistenciaCard() {
                                             registrarPorDNI();
                                         }
                                     }}
-                                    className={isFullscreen ? "text-lg py-4" : ""}
+                                    className={`
+                                        ${isFullscreen
+                                            ? "text-2xl py-8 text-center font-mono tracking-wider"
+                                            : ""
+                                        }
+                                    `}
+                                    autoFocus={isFullscreen}
                                 />
                                 <Button
                                     onClick={registrarPorDNI}
                                     disabled={isLoading}
-                                    className={isFullscreen ? "px-6" : ""}
+                                    className={`
+                                        ${isFullscreen
+                                            ? "h-auto py-8 px-12 text-xl"
+                                            : ""
+                                        }
+                                    `}
+                                    size={isFullscreen ? "lg" : "default"}
                                 >
-                                    Verificar
+                                    {isLoading ? "Verificando..." : "Verificar"}
                                 </Button>
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                                Ingresa el DNI del cliente y presiona Verificar para registrar
-                                su asistencia.
+                            <div
+                                className={`
+                                    text-muted-foreground text-center
+                                    ${isFullscreen ? "text-lg mt-4" : "text-sm"}
+                                `}
+                            >
+                                💡 {isFullscreen
+                                    ? "Ingresa el DNI del cliente y presiona Enter o haz clic en Verificar"
+                                    : "Ingresa el DNI del cliente y presiona Verificar"
+                                }
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-4">
-                            <div className="flex gap-2">
+                        /* Contenido por QR */
+                        <div className="space-y-6">
+                            <div className="flex gap-3">
                                 <Button
                                     variant={cameraEnabled ? "default" : "outline"}
-                                    className="flex-1"
+                                    className={`
+                                        flex-1
+                                        ${isFullscreen ? "h-16 text-lg" : ""}
+                                    `}
                                     onClick={() => setCameraEnabled((v) => !v)}
                                 >
                                     {cameraEnabled ? (
                                         <>
-                                            <CameraOff className="mr-2 h-4 w-4" />
-                                            Desactivar cámara
+                                            <CameraOff className={`mr-2 ${isFullscreen ? "h-5 w-5" : "h-4 w-4"}`} />
+                                            Desactivar Cámara
                                         </>
                                     ) : (
                                         <>
-                                            <Camera className="mr-2 h-4 w-4" />
-                                            Activar cámara
+                                            <Camera className={`mr-2 ${isFullscreen ? "h-5 w-5" : "h-4 w-4"}`} />
+                                            Activar Cámara
                                         </>
                                     )}
                                 </Button>
                             </div>
+
                             {cameraEnabled && (
                                 <>
-                                    <div className="rounded-md border overflow-hidden relative">
+                                    <div
+                                        className={`
+                                            rounded-lg border-2 overflow-hidden relative
+                                            ${isFullscreen ? "border-primary shadow-2xl" : ""}
+                                        `}
+                                    >
                                         <QrScanner
                                             constraints={{ facingMode: "environment" }}
                                             scanDelay={500}
@@ -348,43 +415,74 @@ export function RegistroAsistenciaCard() {
                                             onError={() => {
                                                 /* Silencio errores menores de cámara */
                                             }}
-                                            styles={{
-                                                container: {
-                                                    width: "100%",
-                                                    aspectRatio: isFullscreen ? "16/9" : "16/9",
-                                                },
-                                            }}
+                                        // styles={{
+                                        //     container: {
+                                        //         width: "100%",
+                                        //         aspectRatio: "16/9",
+                                        //     },
+                                        // }}
                                         />
+
+                                        {/* Overlay de procesamiento */}
                                         {isProcessingQR && (
-                                            <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-                                                <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-md shadow-lg">
-                                                    <p className="text-sm font-medium">Procesando...</p>
+                                            <div className="absolute inset-0 bg-blue-500/30 backdrop-blur-sm flex items-center justify-center animate-pulse">
+                                                <div className="bg-white dark:bg-gray-800 px-8 py-4 rounded-lg shadow-2xl">
+                                                    <p className={`font-semibold ${isFullscreen ? "text-2xl" : "text-lg"}`}>
+                                                        ⏳ Procesando...
+                                                    </p>
                                                 </div>
                                             </div>
                                         )}
+
+                                        {/* Marco de escaneo */}
+                                        <div className="absolute inset-0 pointer-events-none">
+                                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-4 border-primary rounded-lg animate-pulse"></div>
+                                        </div>
                                     </div>
+
+                                    {/* Feedback de registro exitoso */}
                                     {lastRegisteredClient && (
-                                        <div className="bg-green-100 dark:bg-green-900/20 border border-green-500 rounded-md p-3">
-                                            <div className="flex items-center gap-2">
-                                                <UserCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                                <div>
-                                                    <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                                                        ✓ Asistencia registrada
+                                        <div
+                                            className={`
+                                                bg-gradient-to-r from-green-100 to-emerald-100 
+                                                dark:from-green-900/30 dark:to-emerald-900/30
+                                                border-2 border-green-500 rounded-lg
+                                                ${isFullscreen ? "p-6" : "p-4"}
+                                                animate-in slide-in-from-bottom duration-300
+                                            `}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-green-500 rounded-full p-3">
+                                                    <UserCheck className={`text-white ${isFullscreen ? "h-8 w-8" : "h-6 w-6"}`} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className={`font-bold text-green-800 dark:text-green-200 ${isFullscreen ? "text-2xl" : "text-lg"}`}>
+                                                        ✓ Asistencia Registrada
                                                     </p>
-                                                    <p className="text-xs text-green-700 dark:text-green-300">
+                                                    <p className={`text-green-700 dark:text-green-300 ${isFullscreen ? "text-xl mt-1" : "text-sm"}`}>
                                                         {lastRegisteredClient}
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
+
+                                    <div
+                                        className={`
+                                            text-center text-muted-foreground
+                                            ${isFullscreen ? "text-lg" : "text-sm"}
+                                        `}
+                                    >
+                                        📱 Coloca el código QR frente a la cámara para escanear
+                                    </div>
                                 </>
                             )}
+
                             {!cameraEnabled && (
                                 <>
-                                    <div className="flex space-x-2">
+                                    <div className={`flex gap-3 ${isFullscreen ? "flex-col sm:flex-row" : ""}`}>
                                         <Input
-                                            placeholder="Pega el contenido del QR o DNI"
+                                            placeholder="Pega el código QR o DNI aquí"
                                             value={qrManual}
                                             onChange={(e) => setQrManual(e.target.value)}
                                             onKeyDown={(e) => {
@@ -392,19 +490,33 @@ export function RegistroAsistenciaCard() {
                                                     registrarPorQRTexto(qrManual);
                                                 }
                                             }}
-                                            className={isFullscreen ? "text-lg py-4" : ""}
+                                            className={`
+                                                ${isFullscreen
+                                                    ? "text-xl py-8 text-center"
+                                                    : ""
+                                                }
+                                            `}
                                         />
                                         <Button
                                             onClick={() => registrarPorQRTexto(qrManual)}
                                             disabled={isLoading}
-                                            className={isFullscreen ? "px-6" : ""}
+                                            className={`
+                                                ${isFullscreen
+                                                    ? "h-auto py-8 px-12 text-xl"
+                                                    : ""
+                                                }
+                                            `}
                                         >
-                                            Verificar
+                                            {isLoading ? "Verificando..." : "Verificar"}
                                         </Button>
                                     </div>
-                                    <div className="text-sm text-muted-foreground">
-                                        Escanea el código QR del cliente con la cámara o pega su
-                                        contenido manualmente.
+                                    <div
+                                        className={`
+                                            text-center text-muted-foreground
+                                            ${isFullscreen ? "text-lg" : "text-sm"}
+                                        `}
+                                    >
+                                        💡 Activa la cámara para escanear o pega el código manualmente
                                     </div>
                                 </>
                             )}
