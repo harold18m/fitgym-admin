@@ -110,7 +110,7 @@ export function PaymentStatusPanel() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  {/* <div className="flex items-center space-x-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -120,7 +120,7 @@ export function PaymentStatusPanel() {
                     >
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                  </div>
+                  </div> */}
                 </div>
               );
             })}
