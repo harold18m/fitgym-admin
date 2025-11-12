@@ -26,7 +26,7 @@ import QRCode from "react-qr-code";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, User, CreditCard, FileCheck, ChevronRight, ChevronLeft } from "lucide-react";
+import { CheckCircle2, User, CreditCard, FileCheck, ChevronRight, ChevronLeft, Eye, EyeOff, Copy, RefreshCw } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 
 
@@ -94,6 +94,14 @@ export function ClienteForm({
 
   const [tempPassword, setTempPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState<string>("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState<string>("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState<string>("");
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -199,6 +207,72 @@ export function ClienteForm({
     }
   };
 
+  const copyCurrentPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(currentPassword);
+    } catch (err) {
+      console.warn("No se pudo copiar la contraseña", err);
+    }
+  };
+
+  // Función para actualizar contraseña del cliente
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.trim().length < 6) {
+      setPasswordChangeError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    if (!clienteActual?.id) {
+      setPasswordChangeError("Error: Cliente no identificado");
+      return;
+    }
+
+    try {
+      setPasswordChangeLoading(true);
+      setPasswordChangeError("");
+      setPasswordChangeSuccess(false);
+
+      const response = await authenticatedFetch(
+        `/api/clientes/${clienteActual.id}/password`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newPassword })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+
+        // Manejo especial para usuario no encontrado en Supabase Auth
+        if (error.code === 'USER_NOT_IN_AUTH') {
+          throw new Error(
+            'Este cliente no tiene una cuenta de acceso creada. ' +
+            'Por favor, cree una nueva cuenta primero desde el formulario de registro.'
+          );
+        }
+
+        throw new Error(error.error || 'Error al actualizar contraseña');
+      }
+
+      setCurrentPassword(newPassword);
+      setNewPassword("");
+      setPasswordChangeSuccess(true);
+      setIsChangingPassword(false);
+
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => {
+        setPasswordChangeSuccess(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error al cambiar contraseña:', error);
+      setPasswordChangeError(error instanceof Error ? error.message : 'Error al actualizar contraseña');
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
   // Función para calcular fecha de vencimiento
   const calcularFechaVencimiento = (membresiaId: string) => {
     const membresiaSeleccionada = membresiasDisponibles.find(m => m.id === membresiaId);
@@ -246,6 +320,11 @@ export function ClienteForm({
         );
       }
 
+      // Cargar foto del cliente si existe
+      if (clienteActual.avatar_url) {
+        setPhotoPreview(clienteActual.avatar_url);
+      }
+
       form.reset({
         nombre: clienteActual.nombre,
         email: clienteActual.email,
@@ -267,6 +346,8 @@ export function ClienteForm({
         fecha_inicio: format(new Date(), "yyyy-MM-dd"), // Fecha de hoy por defecto
         fecha_fin: "",
       });
+      // Limpiar preview de foto cuando se crea un nuevo cliente
+      setPhotoPreview(null);
     }
   }, [clienteActual, form]);
 
@@ -456,548 +537,719 @@ export function ClienteForm({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg md:text-xl">
-            {clienteActual ? "Editar Cliente" : "Nuevo Cliente"}
-          </DialogTitle>
-          <DialogDescription className="text-sm">
-            {clienteActual
-              ? "Modifica los datos del cliente"
-              : `Paso ${currentStep} de ${totalSteps}: ${getStepTitle(currentStep)}`}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg md:text-xl">
+              {clienteActual ? "Editar Cliente" : "Nuevo Cliente"}
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              {clienteActual
+                ? "Modifica los datos del cliente"
+                : `Paso ${currentStep} de ${totalSteps}: ${getStepTitle(currentStep)}`}
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* Progress Indicator */}
-        {!clienteActual && (
-          <div className="flex items-center justify-center px-4 sm:px-8 mb-2">
-            <div className="flex items-center w-full max-w-2xl">
-              {[1, 2, 3].map((step) => (
-                <div key={step} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center flex-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Solo permitir navegar a pasos ya visitados o al paso actual
-                        if (step <= currentStep) {
-                          setCurrentStep(step);
-                        }
-                      }}
-                      disabled={step > currentStep}
-                      className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${step === currentStep
-                        ? "border-primary bg-primary text-primary-foreground shadow-md scale-110"
-                        : step < currentStep
-                          ? "border-primary bg-primary text-primary-foreground hover:scale-105 cursor-pointer"
-                          : "border-muted bg-muted text-muted-foreground cursor-not-allowed"
-                        }`}
-                    >
-                      {step < currentStep ? (
-                        <CheckCircle2 className="h-6 w-6" />
-                      ) : (
-                        getStepIcon(step)
-                      )}
-                    </button>
-                    <span className={`text-xs mt-2 font-medium text-center max-w-[80px] leading-tight ${step === currentStep ? "text-primary" : "text-muted-foreground"
-                      } hidden sm:block`}>
-                      {getStepTitle(step)}
-                    </span>
-                  </div>
-                  {step < totalSteps && (
-                    <div
-                      className={`h-0.5 flex-1 mx-2 transition-all ${step < currentStep ? "bg-primary" : "bg-muted"
-                        }`}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Paso 1: Información Personal */}
-            {(clienteActual || currentStep === 1) && (
-              <div className={currentStep === 1 || clienteActual ? "block" : "hidden"}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5" />
-                      Información Personal
-                    </CardTitle>
-                    <CardDescription>
-                      Datos básicos del cliente
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Foto de perfil */}
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-20 w-20">
-                        <AvatarImage
-                          src={photoPreview || clienteActual?.avatar_url || undefined}
-                        />
-                        <AvatarFallback className="text-lg">
-                          {form.getValues("nombre")
-                            ? form
-                              .getValues("nombre")
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()
-                            : "?"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-2">
-                        <Label htmlFor="foto">Foto de perfil (opcional)</Label>
-                        <Input
-                          id="foto"
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoChange}
-                        />
-                      </div>
+          {/* Progress Indicator */}
+          {!clienteActual && (
+            <div className="flex items-center justify-center px-4 sm:px-8 mb-2">
+              <div className="flex items-center w-full max-w-2xl">
+                {[1, 2, 3].map((step) => (
+                  <div key={step} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center flex-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Solo permitir navegar a pasos ya visitados o al paso actual
+                          if (step <= currentStep) {
+                            setCurrentStep(step);
+                          }
+                        }}
+                        disabled={step > currentStep}
+                        className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${step === currentStep
+                          ? "border-primary bg-primary text-primary-foreground shadow-md scale-110"
+                          : step < currentStep
+                            ? "border-primary bg-primary text-primary-foreground hover:scale-105 cursor-pointer"
+                            : "border-muted bg-muted text-muted-foreground cursor-not-allowed"
+                          }`}
+                      >
+                        {step < currentStep ? (
+                          <CheckCircle2 className="h-6 w-6" />
+                        ) : (
+                          getStepIcon(step)
+                        )}
+                      </button>
+                      <span className={`text-xs mt-2 font-medium text-center max-w-[80px] leading-tight ${step === currentStep ? "text-primary" : "text-muted-foreground"
+                        } hidden sm:block`}>
+                        {getStepTitle(step)}
+                      </span>
                     </div>
-
-                    {/* Campos del formulario */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="nombre"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nombre completo *</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Ej: Juan Pérez García"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="dni"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>DNI *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="12345678" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="telefono"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Teléfono *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="999 999 999" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="fecha_nacimiento"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Fecha de nacimiento *</FormLabel>
-                            <FormControl>
-                              <DatePicker
-                                value={field.value}
-                                onChange={field.onChange}
-                                placeholder="Selecciona fecha de nacimiento"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {autoCreateAccount && (
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        disabled
-                        render={({ field }) => (
-                          <FormItem className="col-span-2">
-                            <FormLabel>Email (generado automáticamente)</FormLabel>
-                            <FormControl>
-                              <Input {...field} readOnly className="bg-muted" />
-                            </FormControl>
-                            <p className="text-xs text-muted-foreground">
-                              Se genera automáticamente como: dni@{dniEmailDomain}
-                            </p>
-                          </FormItem>
-                        )}
+                    {step < totalSteps && (
+                      <div
+                        className={`h-0.5 flex-1 mx-2 transition-all ${step < currentStep ? "bg-primary" : "bg-muted"
+                          }`}
                       />
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Paso 2: Membresía */}
-            {(clienteActual || currentStep === 2) && (
-              <div className={currentStep === 2 || clienteActual ? "block" : "hidden"}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      Membresía
-                    </CardTitle>
-                    <CardDescription>
-                      Selecciona el plan y fechas
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="membresia_id"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Plan de membresía *</FormLabel>
-                          <Select
-                            onValueChange={(val) => {
-                              field.onChange(val);
-                              const start = form.getValues("fecha_inicio");
-                              const mem = membresiasDisponibles.find(
-                                (m) => m.id === val
-                              );
-                              if (start && mem?.duracion) {
-                                const dt = parse(start, "yyyy-MM-dd", new Date());
-                                const fin = format(
-                                  addMonths(dt, mem.duracion),
-                                  "yyyy-MM-dd"
-                                );
-                                form.setValue("fecha_fin", fin);
-                              }
-                            }}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona una membresía" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {membresiasDisponibles.map((membresia) => (
-                                <SelectItem key={membresia.id} value={membresia.id}>
-                                  <div className="flex flex-col py-1">
-                                    <div className="font-medium">
-                                      {membresia.nombre}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      S/ {membresia.precio} •{" "}
-                                      {membresia.duracion
-                                        ? `${membresia.duracion} ${membresia.duracion === 1 ? "mes" : "meses"
-                                        }`
-                                        : membresia.tipo}
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
+          <Form {...form}>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Paso 1: Información Personal */}
+              {(clienteActual || currentStep === 1) && (
+                <div className={currentStep === 1 || clienteActual ? "block" : "hidden"}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        Información Personal
+                      </CardTitle>
+                      <CardDescription>
+                        Datos básicos del cliente
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Foto de perfil */}
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <Avatar className="h-24 w-24 border-2 border-primary/20">
+                            <AvatarImage
+                              src={photoPreview || clienteActual?.avatar_url || undefined}
+                              alt={form.getValues("nombre")}
+                            />
+                            <AvatarFallback className="text-xl font-semibold bg-primary/5">
+                              {form.getValues("nombre")
+                                ? form
+                                  .getValues("nombre")
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                                : "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          {photoPreview && !clienteActual?.avatar_url?.startsWith(photoPreview) && (
+                            <div className="absolute -top-2 -right-2 bg-blue-500 rounded-full p-1">
+                              <CheckCircle2 className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <div>
+                            <Label htmlFor="foto" className="text-base font-semibold">
+                              Foto de perfil <span className="text-xs text-muted-foreground">(opcional)</span>
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Soporta: JPG, PNG, GIF (máx. 5MB)
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Input
+                              id="foto"
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoChange}
+                              className="cursor-pointer"
+                            />
+                            {photoFile && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setPhotoFile(null);
+                                  setPhotoPreview(clienteActual?.avatar_url || null);
+                                }}
+                              >
+                                Limpiar
+                              </Button>
+                            )}
+                          </div>
+                          {photoFile && (
+                            <p className="text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Nueva foto seleccionada
+                            </p>
+                          )}
+                        </div>
+                      </div>                      {/* Campos del formulario */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="nombre"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nombre completo *</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Ej: Juan Pérez García"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="dni"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>DNI *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="12345678" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="telefono"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Teléfono *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="999 999 999" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="fecha_nacimiento"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fecha de nacimiento *</FormLabel>
+                              <FormControl>
+                                <DatePicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  placeholder="Selecciona fecha de nacimiento"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {autoCreateAccount && (
+                        <FormField
+                          control={form.control}
+                          name="email"
+                          disabled
+                          render={({ field }) => (
+                            <FormItem className="col-span-2">
+                              <FormLabel>Email (generado automáticamente)</FormLabel>
+                              <FormControl>
+                                <Input {...field} readOnly className="bg-muted" />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Se genera automáticamente como: dni@{dniEmailDomain}
+                              </p>
+                            </FormItem>
+                          )}
+                        />
                       )}
-                    />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Paso 2: Membresía */}
+              {(clienteActual || currentStep === 2) && (
+                <div className={currentStep === 2 || clienteActual ? "block" : "hidden"}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5" />
+                        Membresía
+                      </CardTitle>
+                      <CardDescription>
+                        Selecciona el plan y fechas
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                       <FormField
                         control={form.control}
-                        name="fecha_inicio"
+                        name="membresia_id"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Fecha de inicio *</FormLabel>
-                            <FormControl>
-                              <DatePicker
-                                value={field.value}
-                                onChange={(val) => {
-                                  field.onChange(val);
-                                  const memId = form.getValues("membresia_id");
-                                  const mem = membresiasDisponibles.find(
-                                    (m) => m.id === memId
+                            <FormLabel>Plan de membresía *</FormLabel>
+                            <Select
+                              onValueChange={(val) => {
+                                field.onChange(val);
+                                const start = form.getValues("fecha_inicio");
+                                const mem = membresiasDisponibles.find(
+                                  (m) => m.id === val
+                                );
+                                if (start && mem?.duracion) {
+                                  const dt = parse(start, "yyyy-MM-dd", new Date());
+                                  const fin = format(
+                                    addMonths(dt, mem.duracion),
+                                    "yyyy-MM-dd"
                                   );
-                                  if (val && mem?.duracion) {
-                                    const dt = parse(val, "yyyy-MM-dd", new Date());
-                                    const fin = format(
-                                      addMonths(dt, mem.duracion),
-                                      "yyyy-MM-dd"
-                                    );
-                                    form.setValue("fecha_fin", fin);
-                                  }
-                                }}
-                                placeholder="Selecciona fecha de inicio"
-                              />
-                            </FormControl>
+                                  form.setValue("fecha_fin", fin);
+                                }
+                              }}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona una membresía" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {membresiasDisponibles.map((membresia) => (
+                                  <SelectItem key={membresia.id} value={membresia.id}>
+                                    <div className="flex flex-col py-1">
+                                      <div className="font-medium">
+                                        {membresia.nombre}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        S/ {membresia.precio} •{" "}
+                                        {membresia.duracion
+                                          ? `${membresia.duracion} ${membresia.duracion === 1 ? "mes" : "meses"
+                                          }`
+                                          : membresia.tipo}
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="fecha_fin"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Fecha de vencimiento</FormLabel>
-                            <FormControl>
-                              <DatePicker
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled
-                                placeholder="Calculada automáticamente"
-                              />
-                            </FormControl>
-                            <p className="text-xs text-muted-foreground">
-                              Calculada automáticamente
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="fecha_inicio"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fecha de inicio *</FormLabel>
+                              <FormControl>
+                                <DatePicker
+                                  value={field.value}
+                                  onChange={(val) => {
+                                    field.onChange(val);
+                                    const memId = form.getValues("membresia_id");
+                                    const mem = membresiasDisponibles.find(
+                                      (m) => m.id === memId
+                                    );
+                                    if (val && mem?.duracion) {
+                                      const dt = parse(val, "yyyy-MM-dd", new Date());
+                                      const fin = format(
+                                        addMonths(dt, mem.duracion),
+                                        "yyyy-MM-dd"
+                                      );
+                                      form.setValue("fecha_fin", fin);
+                                    }
+                                  }}
+                                  placeholder="Selecciona fecha de inicio"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="fecha_fin"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fecha de vencimiento</FormLabel>
+                              <FormControl>
+                                <DatePicker
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  disabled
+                                  placeholder="Calculada automáticamente"
+                                />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Calculada automáticamente
+                              </p>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Paso 3: Revisión */}
+              {(clienteActual || currentStep === 3) && (
+                <div className={currentStep === 3 || clienteActual ? "block" : "hidden"}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileCheck className="h-5 w-5" />
+                        Revisión y Confirmación
+                      </CardTitle>
+                      <CardDescription>
+                        Verifica los datos antes de guardar
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Resumen de datos personales */}
+                      <div>
+                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          Datos Personales
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Nombre:</span>
+                            <p className="font-medium">
+                              {form.getValues("nombre") || "-"}
                             </p>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Paso 3: Revisión */}
-            {(clienteActual || currentStep === 3) && (
-              <div className={currentStep === 3 || clienteActual ? "block" : "hidden"}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileCheck className="h-5 w-5" />
-                      Revisión y Confirmación
-                    </CardTitle>
-                    <CardDescription>
-                      Verifica los datos antes de guardar
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Resumen de datos personales */}
-                    <div>
-                      <h4 className="font-semibold mb-3 flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        Datos Personales
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Nombre:</span>
-                          <p className="font-medium">
-                            {form.getValues("nombre") || "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">DNI:</span>
-                          <p className="font-medium">
-                            {form.getValues("dni") || "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Teléfono:</span>
-                          <p className="font-medium">
-                            {form.getValues("telefono") || "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">
-                            Fecha de nacimiento:
-                          </span>
-                          <p className="font-medium">
-                            {(() => {
-                              const fecha = form.getValues("fecha_nacimiento");
-                              if (!fecha || fecha.trim() === "") return "-";
-                              try {
-                                return format(parse(fecha, "yyyy-MM-dd", new Date()), "dd/MM/yyyy");
-                              } catch {
-                                return "-";
-                              }
-                            })()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Resumen de membresía */}
-                    <div>
-                      <h4 className="font-semibold mb-3 flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        Membresía
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Plan:</span>
-                          <p className="font-medium">
-                            {membresiasDisponibles.find(
-                              (m) => m.id === form.getValues("membresia_id")
-                            )?.nombre || "No seleccionado"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Precio:</span>
-                          <p className="font-medium">
-                            S/{" "}
-                            {membresiasDisponibles.find(
-                              (m) => m.id === form.getValues("membresia_id")
-                            )?.precio || "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Inicio:</span>
-                          <p className="font-medium">
-                            {(() => {
-                              const fecha = form.getValues("fecha_inicio");
-                              if (!fecha || fecha.trim() === "") return "-";
-                              try {
-                                return format(parse(fecha, "yyyy-MM-dd", new Date()), "dd/MM/yyyy");
-                              } catch {
-                                return "-";
-                              }
-                            })()}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">
-                            Vencimiento:
-                          </span>
-                          <p className="font-medium">
-                            {(() => {
-                              const fecha = form.getValues("fecha_fin");
-                              if (!fecha || fecha.trim() === "") return "-";
-                              try {
-                                return format(parse(fecha, "yyyy-MM-dd", new Date()), "dd/MM/yyyy");
-                              } catch {
-                                return "-";
-                              }
-                            })()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Información de acceso */}
-                    <div className="bg-muted/50 p-4 rounded-lg">
-                      <h4 className="font-semibold mb-2">Información de Acceso</h4>
-                      <div className="space-y-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Usuario:</span>
-                          <p className="font-mono">{form.getValues("dni")}</p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">
-                            Contraseña temporal:
-                          </span>
-                          <div className="flex gap-2 mt-1">
-                            <Input
-                              type={showPassword ? "text" : "password"}
-                              value={tempPassword}
-                              readOnly
-                              className="font-mono bg-background"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowPassword(!showPassword)}
-                            >
-                              {showPassword ? "Ocultar" : "Mostrar"}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={copyPassword}
-                            >
-                              Copiar
-                            </Button>
                           </div>
-                          {!tempPassword && (
-                            <Button
-                              type="button"
-                              variant="link"
-                              size="sm"
-                              onClick={generatePassword}
-                              className="mt-1 px-0"
-                            >
-                              Generar contraseña
-                            </Button>
+                          <div>
+                            <span className="text-muted-foreground">DNI:</span>
+                            <p className="font-medium">
+                              {form.getValues("dni") || "-"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Teléfono:</span>
+                            <p className="font-medium">
+                              {form.getValues("telefono") || "-"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Fecha de nacimiento:
+                            </span>
+                            <p className="font-medium">
+                              {(() => {
+                                const fecha = form.getValues("fecha_nacimiento");
+                                if (!fecha || fecha.trim() === "") return "-";
+                                try {
+                                  return format(parse(fecha, "yyyy-MM-dd", new Date()), "dd/MM/yyyy");
+                                } catch {
+                                  return "-";
+                                }
+                              })()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Resumen de membresía */}
+                      <div>
+                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                          <CreditCard className="h-4 w-4" />
+                          Membresía
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Plan:</span>
+                            <p className="font-medium">
+                              {membresiasDisponibles.find(
+                                (m) => m.id === form.getValues("membresia_id")
+                              )?.nombre || "No seleccionado"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Precio:</span>
+                            <p className="font-medium">
+                              S/{" "}
+                              {membresiasDisponibles.find(
+                                (m) => m.id === form.getValues("membresia_id")
+                              )?.precio || "-"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Inicio:</span>
+                            <p className="font-medium">
+                              {(() => {
+                                const fecha = form.getValues("fecha_inicio");
+                                if (!fecha || fecha.trim() === "") return "-";
+                                try {
+                                  return format(parse(fecha, "yyyy-MM-dd", new Date()), "dd/MM/yyyy");
+                                } catch {
+                                  return "-";
+                                }
+                              })()}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              Vencimiento:
+                            </span>
+                            <p className="font-medium">
+                              {(() => {
+                                const fecha = form.getValues("fecha_fin");
+                                if (!fecha || fecha.trim() === "") return "-";
+                                try {
+                                  return format(parse(fecha, "yyyy-MM-dd", new Date()), "dd/MM/yyyy");
+                                } catch {
+                                  return "-";
+                                }
+                              })()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Información de acceso */}
+                      <div className="bg-muted/50 p-4 rounded-lg">
+                        <h4 className="font-semibold mb-4">Información de Acceso</h4>
+                        <div className="space-y-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Usuario:</span>
+                            <p className="font-mono font-semibold">{form.getValues("dni")}</p>
+                          </div>
+
+                          {/* Sección de contraseña */}
+                          {clienteActual ? (
+                            // Edición: mostrar contraseña actual y opción de cambiar
+                            <div className="space-y-3 pt-2">
+                              <div>
+                                <span className="text-muted-foreground">Contraseña Actual:</span>
+                                <div className="flex gap-2 mt-1">
+                                  <Input
+                                    type={showCurrentPassword ? "text" : "password"}
+                                    value={currentPassword}
+                                    readOnly
+                                    className="font-mono bg-background"
+                                    placeholder="No disponible"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    title={showCurrentPassword ? "Ocultar" : "Mostrar"}
+                                  >
+                                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={copyCurrentPassword}
+                                    disabled={!currentPassword}
+                                    title="Copiar contraseña"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setIsChangingPassword(true)}
+                                className="w-full"
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Cambiar Contraseña
+                              </Button>
+                            </div>
+                          ) : (
+                            // Creación: mostrar contraseña temporal a generar
+                            <div>
+                              <span className="text-muted-foreground">Contraseña Temporal:</span>
+                              <div className="flex gap-2 mt-1">
+                                <Input
+                                  type={showPassword ? "text" : "password"}
+                                  value={tempPassword}
+                                  readOnly
+                                  className="font-mono bg-background"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  title={showPassword ? "Ocultar" : "Mostrar"}
+                                >
+                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={copyPassword}
+                                  disabled={!tempPassword}
+                                  title="Copiar contraseña"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              {!tempPassword && (
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  size="sm"
+                                  onClick={generatePassword}
+                                  className="mt-2 px-0"
+                                >
+                                  Generar contraseña
+                                </Button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                {!clienteActual && currentStep > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={prevStep}
+                    className="w-full sm:w-auto"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Anterior
+                  </Button>
+                )}
+
+                <div className="flex-1" />
+
+                <DialogClose asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    Cancelar
+                  </Button>
+                </DialogClose>
+
+                {!clienteActual && currentStep < totalSteps && (
+                  <Button
+                    type="button"
+                    onClick={nextStep}
+                    className="w-full sm:w-auto"
+                  >
+                    Siguiente
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
+
+                {(clienteActual || currentStep === totalSteps) && (
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={form.formState.isSubmitting}
+                  >
+                    {form.formState.isSubmitting
+                      ? "Guardando..."
+                      : clienteActual
+                        ? "Actualizar"
+                        : "Guardar Cliente"}
+                  </Button>
+                )}
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para cambiar contraseña */}
+      <Dialog open={isChangingPassword} onOpenChange={setIsChangingPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cambiar Contraseña</DialogTitle>
+            <DialogDescription>
+              Ingresa la nueva contraseña para {form.getValues("nombre")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Nueva Contraseña *</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-password"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordChangeError("");
+                  }}
+                  placeholder="Mínimo 6 caracteres"
+                  className="font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  title={showNewPassword ? "Ocultar" : "Mostrar"}
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              {newPassword.length > 0 && newPassword.length < 6 && (
+                <p className="text-xs text-red-500">La contraseña debe tener al menos 6 caracteres</p>
+              )}
+              {newPassword.length >= 6 && (
+                <p className="text-xs text-green-500">✓ Contraseña válida</p>
+              )}
+            </div>
+
+            {passwordChangeError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                {passwordChangeError}
               </div>
             )}
 
-            {/* Navigation Buttons */}
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              {!clienteActual && currentStep > 1 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={prevStep}
-                  className="w-full sm:w-auto"
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Anterior
-                </Button>
-              )}
+            {passwordChangeSuccess && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded text-sm text-green-700 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Contraseña actualizada correctamente
+              </div>
+            )}
+          </div>
 
-              <div className="flex-1" />
-
-              <DialogClose asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                >
-                  Cancelar
-                </Button>
-              </DialogClose>
-
-              {!clienteActual && currentStep < totalSteps && (
-                <Button
-                  type="button"
-                  onClick={nextStep}
-                  className="w-full sm:w-auto"
-                >
-                  Siguiente
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              )}
-
-              {(clienteActual || currentStep === totalSteps) && (
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={form.formState.isSubmitting}
-                >
-                  {form.formState.isSubmitting
-                    ? "Guardando..."
-                    : clienteActual
-                      ? "Actualizar"
-                      : "Guardar Cliente"}
-                </Button>
-              )}
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsChangingPassword(false);
+                setNewPassword("");
+                setPasswordChangeError("");
+                setPasswordChangeSuccess(false);
+              }}
+              disabled={passwordChangeLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleChangePassword}
+              disabled={passwordChangeLoading || newPassword.length < 6}
+            >
+              {passwordChangeLoading ? "Actualizando..." : "Actualizar Contraseña"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
