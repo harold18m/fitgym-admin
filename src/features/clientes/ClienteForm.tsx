@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { authenticatedFetch } from "@/lib/fetch-utils";
+import { formatDateToStorage } from "@/lib/dateUtils";
 import {
   Dialog,
   DialogClose,
@@ -227,30 +228,23 @@ export function ClienteForm({
 
   useEffect(() => {
     if (clienteActual) {
-      // Helper para convertir Date | null a string
+      // Helper para convertir Date | null a string en formato yyyy-MM-dd
       const formatDate = (date: Date | string | null) => {
-        if (!date) return "";
-
-        // Si ya es un string, devolverlo tal como está
-        if (typeof date === 'string') return date;
-
-        // Si es un Date, formatearlo
-        if (date instanceof Date) {
-          return format(date, "yyyy-MM-dd");
-        }
-
-        // Si es un string que parece una fecha ISO, intentar parsearlo
-        try {
-          const parsedDate = new Date(date);
-          if (!isNaN(parsedDate.getTime())) {
-            return format(parsedDate, "yyyy-MM-dd");
-          }
-        } catch (error) {
-          console.warn("Error parseando fecha:", date, error);
-        }
-
-        return "";
+        // Usar la utilidad centralizada
+        return formatDateToStorage(date);
       };
+
+      // Debug: Log para ver qué formato tiene la fecha de nacimiento
+      if (clienteActual.fecha_nacimiento) {
+        console.log(
+          "📅 Fecha de nacimiento del cliente:",
+          clienteActual.fecha_nacimiento,
+          "tipo:",
+          typeof clienteActual.fecha_nacimiento,
+          "formateada:",
+          formatDate(clienteActual.fecha_nacimiento)
+        );
+      }
 
       form.reset({
         nombre: clienteActual.nombre,

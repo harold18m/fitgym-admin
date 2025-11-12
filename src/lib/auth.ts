@@ -11,9 +11,6 @@ export function getSupabaseToken(request: NextRequest): string | undefined {
     const authHeader = request.headers.get('authorization');
     if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
-        if (process.env.NODE_ENV === 'development') {
-            console.log('✅ [Auth] Token encontrado en Authorization header');
-        }
         return token;
     }
 

@@ -25,6 +25,11 @@ export function formatDateToStorage(date: Date | string | null | undefined): str
             if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
                 return date;
             }
+            // Si es ISO completo con zona horaria (2025-10-30T00:00:00.000Z)
+            // Extraer solo la parte de fecha YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+                return date.split('T')[0];
+            }
             // Si es ISO string, parsear y formatear
             const parsed = new Date(date);
             if (!isNaN(parsed.getTime())) {
@@ -42,19 +47,37 @@ export function formatDateToStorage(date: Date | string | null | undefined): str
 
 /**
  * Convierte una fecha en formato yyyy-MM-dd a formato dd/MM/yyyy para mostrar
- * @param dateString - String en formato yyyy-MM-dd
+ * @param date - String en formato yyyy-MM-dd, ISO completo, o Date object
  * @returns String en formato dd/MM/yyyy o empty string si inválido
  */
-export function formatDateToDisplay(dateString: string | null | undefined): string {
-    if (!dateString || dateString.trim() === "") return "";
+export function formatDateToDisplay(date: Date | string | null | undefined): string {
+    if (!date) return "";
 
     try {
-        const parsed = parse(dateString, DATE_STORAGE_FORMAT, new Date());
-        if (!isNaN(parsed.getTime())) {
-            return format(parsed, DATE_DISPLAY_FORMAT);
+        let dateToFormat: Date;
+
+        if (typeof date === "string") {
+            // Si es ISO completo con zona horaria (2025-10-30T00:00:00.000Z)
+            // Extraer solo la parte de fecha YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+                const dateOnly = date.split('T')[0];
+                dateToFormat = parse(dateOnly, DATE_STORAGE_FORMAT, new Date());
+            } else {
+                // Si es yyyy-MM-dd o cualquier otro formato
+                dateToFormat = parse(date, DATE_STORAGE_FORMAT, new Date());
+            }
+        } else if (date instanceof Date) {
+            // Si es un Date object directamente
+            dateToFormat = date;
+        } else {
+            return "";
+        }
+
+        if (!isNaN(dateToFormat.getTime())) {
+            return format(dateToFormat, DATE_DISPLAY_FORMAT);
         }
     } catch (error) {
-        console.warn("Error formateando fecha para mostrar:", dateString, error);
+        console.warn("Error formateando fecha para mostrar:", date, error);
     }
 
     return "";

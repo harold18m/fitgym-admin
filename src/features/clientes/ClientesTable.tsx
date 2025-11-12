@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Edit, Trash2, Calendar, AlertTriangle } from "lucide-react";
 import type { clientes } from "@prisma/client";
 import { useMembershipExpiration } from "@/hooks/useMembershipExpiration";
+import { formatDateToDisplay, formatDateToStorage } from "@/lib/dateUtils";
 
 interface ClientesTableProps {
   clientes: clientes[];
@@ -102,7 +103,7 @@ export function ClientesTable({
                       </TableCell>
                       <TableCell>
                         {cliente.fecha_nacimiento ?
-                          new Date(cliente.fecha_nacimiento).toLocaleDateString() :
+                          formatDateToDisplay(cliente.fecha_nacimiento) :
                           'No especificada'
                         }
                       </TableCell>
@@ -118,7 +119,7 @@ export function ClientesTable({
                           </Badge>
                           {cliente.fecha_fin && (
                             <span className="text-xs text-muted-foreground">
-                              {new Date(cliente.fecha_fin).toLocaleDateString()}
+                              {formatDateToDisplay(cliente.fecha_fin)}
                             </span>
                           )}
                         </div>
@@ -226,7 +227,7 @@ export function ClientesTable({
                     {cliente.fecha_fin && (
                       <div className="pt-1">
                         <p className="text-xs text-muted-foreground">
-                          Vence: {new Date(cliente.fecha_fin).toLocaleDateString()}
+                          Vence: {formatDateToDisplay(cliente.fecha_fin)}
                         </p>
                       </div>
                     )}

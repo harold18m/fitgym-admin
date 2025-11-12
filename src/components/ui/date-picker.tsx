@@ -38,11 +38,34 @@ export function DatePicker({
 
   if (normalizedValue) {
     try {
-      const parsedDate = parse(normalizedValue, STORAGE_FORMAT, new Date());
+      // Intentar diferentes formatos
+      let parsedDate: Date | undefined;
+
+      // Primero intentar formato yyyy-MM-dd (ISO simple)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+        parsedDate = parse(normalizedValue, STORAGE_FORMAT, new Date());
+      }
+      // Luego intentar formato dd/MM/yyyy
+      else if (/^\d{2}\/\d{2}\/\d{4}$/.test(normalizedValue)) {
+        parsedDate = parse(normalizedValue, DISPLAY_FORMAT, new Date());
+      }
+      // Si es ISO completo con zona horaria (2025-10-30T00:00:00.000Z)
+      // Extraer solo la fecha YYYY-MM-DD
+      else if (/^\d{4}-\d{2}-\d{2}T/.test(normalizedValue)) {
+        const dateOnly = normalizedValue.split('T')[0]; // Obtener "2025-10-30"
+        parsedDate = parse(dateOnly, STORAGE_FORMAT, new Date());
+      }
+      // Intentar como fecha ISO completa
+      else {
+        parsedDate = new Date(normalizedValue);
+      }
+
       // Verificar que la fecha sea válida
-      if (!isNaN(parsedDate.getTime())) {
+      if (parsedDate && !isNaN(parsedDate.getTime())) {
         selected = parsedDate;
         displayText = format(parsedDate, DISPLAY_FORMAT, { locale: es });
+      } else {
+        console.warn("Fecha inválida:", normalizedValue);
       }
     } catch (error) {
       console.warn("Error parseando fecha:", normalizedValue, error);
