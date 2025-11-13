@@ -33,6 +33,11 @@ export async function GET() {
                 avatar_url: true,
                 fecha_fin: true,
                 nombre_membresia: true,
+                membresias: {
+                    select: {
+                        nombre: true,
+                    },
+                },
             },
             orderBy: {
                 fecha_fin: 'asc',
@@ -57,6 +62,11 @@ export async function GET() {
                 avatar_url: true,
                 fecha_fin: true,
                 nombre_membresia: true,
+                membresias: {
+                    select: {
+                        nombre: true,
+                    },
+                },
             },
             orderBy: {
                 fecha_fin: 'asc',
@@ -77,6 +87,11 @@ export async function GET() {
                 avatar_url: true,
                 fecha_fin: true,
                 nombre_membresia: true,
+                membresias: {
+                    select: {
+                        nombre: true,
+                    },
+                },
             },
             orderBy: {
                 fecha_fin: 'desc',
@@ -84,10 +99,19 @@ export async function GET() {
             take: 10,
         });
 
+        // Aplanar nombre de membresía: priorizar el campo en la tabla `clientes`
+        const mapClient = (c: any) => ({
+            id: c.id,
+            nombre: c.nombre,
+            avatar_url: c.avatar_url,
+            fecha_fin: c.fecha_fin,
+            nombre_membresia: c.nombre_membresia ?? c.membresias?.nombre ?? null,
+        });
+
         return NextResponse.json({
-            activos,
-            porVencer,
-            vencidos,
+            activos: activos.map(mapClient),
+            porVencer: porVencer.map(mapClient),
+            vencidos: vencidos.map(mapClient),
         });
     } catch (error: any) {
         console.error('Error obteniendo estado de pagos:', error);

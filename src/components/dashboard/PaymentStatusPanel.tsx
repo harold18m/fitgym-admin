@@ -12,13 +12,14 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { authenticatedGet, authenticatedPost } from "@/lib/fetch-utils";
 import { AvatarImage } from "@radix-ui/react-avatar";
+import { JsonObject } from "@prisma/client/runtime/library";
 
 interface ClienteItem {
   id: string;
   nombre: string;
   avatar_url: string | null;
   fecha_fin: string | null;
-  nombre_membresia: string | null;
+  nombre_membresia?: string | null;
 }
 
 interface DashboardPagosResponse {
@@ -102,17 +103,17 @@ export function PaymentStatusPanel() {
                       </p>
                     </div>
                   </div>
-                  {/* <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2">
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-6 px-2"
-                      title="Registrar pago y extender"
-                      onClick={() => registrarPago(c.id)}
+                      title="Registrar cliente"
+                      onClick={() => (c.id)}
                     >
                       <RefreshCw className="h-3 w-3" />
                     </Button>
-                  </div> */}
+                  </div>
                 </div>
               );
             })}
