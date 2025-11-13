@@ -39,8 +39,6 @@ export async function GET(request: Request) {
                         nombre: true,
                         dni: true,
                         avatar_url: true,
-                        nombre_membresia: true,
-                        tipo_membresia: true,
                         fecha_fin: true,
                         estado: true,
                     }
@@ -151,8 +149,6 @@ export async function POST(request: Request) {
                         nombre: true,
                         dni: true,
                         avatar_url: true,
-                        nombre_membresia: true,
-                        tipo_membresia: true,
                         fecha_fin: true,
                         estado: true,
                     }

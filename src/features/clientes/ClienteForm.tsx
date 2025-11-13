@@ -746,9 +746,8 @@ export function ClienteForm({
                         <FormField
                           control={form.control}
                           name="email"
-                          disabled
                           render={({ field }) => (
-                            <FormItem className="col-span-2">
+                            <FormItem className="col-span-2 hidden">
                               <FormLabel>Email (generado automáticamente)</FormLabel>
                               <FormControl>
                                 <Input {...field} readOnly className="bg-muted" />

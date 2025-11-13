@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { EstadoCliente } from '@prisma/client';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // GET - Obtener un cliente por ID
 export async function GET(
@@ -12,7 +13,6 @@ export async function GET(
         const cliente = await prisma.clientes.findUnique({
             where: {
                 id: params.id,
-                deleted_at: null // Solo clientes no eliminados
             },
             include: {
                 membresias: {
@@ -84,7 +84,6 @@ export async function PUT(
         const cliente = await prisma.clientes.update({
             where: {
                 id: params.id,
-                deleted_at: null // Solo actualizar clientes no eliminados
             },
             data: updateData,
             include: {
@@ -116,40 +115,58 @@ export async function DELETE(
     try {
         const clienteId = params.id;
 
-        // Verificar que el cliente existe y no está ya eliminado
+        // Verificar que el cliente existe
         const cliente = await prisma.clientes.findUnique({
             where: {
                 id: clienteId,
-                deleted_at: null // Solo clientes no eliminados
             },
         });
 
         if (!cliente) {
             return NextResponse.json(
-                { error: 'Cliente no encontrado o ya eliminado' },
+                { error: 'Cliente no encontrado' },
                 { status: 404 }
             );
         }
 
-        // Realizar eliminación lógica
-        const clienteEliminado = await prisma.clientes.update({
-            where: { id: clienteId },
-            data: {
-                deleted_at: new Date(),
-                // Opcional: cambiar estado a inactivo
-                estado: 'suspendida'
-            },
-        });
+        try {
+            await prisma.$transaction([
+                prisma.asistencias.deleteMany({ where: { cliente_id: clienteId } }),
+                prisma.rutinas.deleteMany({ where: { cliente_id: clienteId } }),
+                prisma.tarjetas_acceso.deleteMany({ where: { cliente_id: clienteId } }),
+                prisma.eventos.deleteMany({ where: { cliente_id: clienteId } }),
+                prisma.clientes.delete({ where: { id: clienteId } }),
+            ]);
 
-        return NextResponse.json({
-            success: true,
-            message: 'Cliente eliminado correctamente',
-            cliente: {
-                id: clienteEliminado.id,
-                nombre: clienteEliminado.nombre,
-                deleted_at: clienteEliminado.deleted_at
+            // Después de eliminar en la BD, intentar eliminar el usuario en Supabase Auth
+            if (cliente.email) {
+                try {
+                    const { data: authData } = await supabaseAdmin.auth.admin.listUsers();
+                    const userToDelete = authData?.users?.find(u => u.email === cliente.email);
+                    if (userToDelete) {
+                        await supabaseAdmin.auth.admin.deleteUser(userToDelete.id);
+                        console.log(`Usuario en Auth eliminado: ${userToDelete.id}`);
+                    }
+                } catch (authError: any) {
+                    console.warn(`No se pudo eliminar usuario en Auth para ${cliente.email}:`, authError.message);
+                }
             }
-        });
+
+            return NextResponse.json({
+                success: true,
+                message: 'Cliente eliminado permanentemente',
+                cliente: {
+                    id: clienteId,
+                    nombre: cliente.nombre,
+                }
+            });
+        } catch (txError: any) {
+            console.error('Error en transacción de eliminación:', txError);
+            return NextResponse.json(
+                { error: 'Error al eliminar cliente y sus dependencias', details: txError.message },
+                { status: 500 }
+            );
+        }
     } catch (error: any) {
         console.error('Error al eliminar cliente:', error);
 
