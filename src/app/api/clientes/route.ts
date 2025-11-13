@@ -89,3 +89,12 @@ export async function POST(request: Request) {
         );
     }
 }
+
+// OPTIONS - Soporte para preflight CORS (evita 405 en peticiones no-simples)
+export async function OPTIONS() {
+    const headers = new Headers();
+    headers.set('Access-Control-Allow-Origin', '*');
+    headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return new NextResponse(null, { status: 204, headers });
+}

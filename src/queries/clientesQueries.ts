@@ -69,7 +69,9 @@ export function useClientesQuery() {
     return useQuery({
         queryKey: clientesKeys.lists(),
         queryFn: fetchClientes,
-        staleTime: 5 * 60 * 1000, // 5 minutos
+        // Mantener en cache 15 minutos y refrescar en background cada 15 minutos
+        staleTime: 15 * 60 * 1000, // 15 minutos
+        refetchInterval: 15 * 60 * 1000, // refetch automático cada 15 minutos
     });
 }
 

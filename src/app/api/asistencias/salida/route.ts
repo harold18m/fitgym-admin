@@ -107,6 +107,14 @@ export async function POST(request: Request) {
 
 // GET /api/asistencias/salida - Obtener asistencias pendientes de salida
 export async function GET(request: Request) {
+    // Antes de devolver las asistencias pendientes, registrar automáticamente
+    // salidas para aquellos registros cuya hora de entrada excede el umbral (90 min)
+    try {
+        await autoRegisterSalidasAutomaticas(90);
+    } catch (err) {
+        console.error('Error al ejecutar auto-register de salidas:', err);
+        // No abortamos la respuesta; seguimos y devolvemos las asistencias pendientes
+    }
     try {
         const { searchParams } = new URL(request.url);
         const clienteId = searchParams.get('cliente_id');
@@ -162,4 +170,49 @@ export async function GET(request: Request) {
             { status: 500 }
         );
     }
+}
+
+// ----------------------
+// Registro automático
+// ----------------------
+async function autoRegisterSalidasAutomaticas(thresholdMinutes: number = 90) {
+    const ahora = new Date();
+    const thresholdMs = thresholdMinutes * 60 * 1000;
+    const cutoff = new Date(ahora.getTime() - thresholdMs);
+
+    // Buscar asistencias sin hora_salida cuya hora_entrada sea anterior o igual al cutoff
+    const pendientes = await prisma.asistencias.findMany({
+        where: {
+            hora_salida: null,
+            hora_entrada: {
+                lte: cutoff
+            }
+        }
+    });
+
+    if (!pendientes || pendientes.length === 0) return { updated: 0 };
+
+    const updates = [] as any[];
+
+    for (const a of pendientes) {
+        try {
+            // Registrar la salida exactamente thresholdMinutes después de la entrada
+            const horaSalida = new Date(a.hora_entrada.getTime() + thresholdMs);
+            const duracionMinutos = Math.round((horaSalida.getTime() - a.hora_entrada.getTime()) / (1000 * 60));
+
+            const updated = await prisma.asistencias.update({
+                where: { id: a.id },
+                data: {
+                    hora_salida: horaSalida,
+                    duracion_minutos: duracionMinutos
+                }
+            });
+
+            updates.push(updated);
+        } catch (err) {
+            console.error('No se pudo actualizar asistencia automática:', a.id, err);
+        }
+    }
+
+    return { updated: updates.length, detalles: updates.map(u => u.id) };
 }

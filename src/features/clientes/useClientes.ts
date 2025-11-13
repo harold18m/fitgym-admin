@@ -1,5 +1,6 @@
 // Nueva versión con Prisma
 import { useState, useEffect } from "react";
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from "@/hooks/use-toast";
 import { useMembresias } from "@/hooks/useMembresias";
 import { authenticatedFetch } from "@/lib/fetch-utils";
@@ -29,6 +30,7 @@ export const useClientes = () => {
   const [clienteToDelete, setClienteToDelete] = useState<string | null>(null);
   const { toast } = useToast();
   const { getMembresiasPorSeleccion } = useMembresias();
+  const queryClient = useQueryClient();
 
   // Cargar clientes desde la API (Prisma en el backend)
   const fetchClientes = async () => {
@@ -89,7 +91,10 @@ export const useClientes = () => {
         throw new Error('Error al eliminar cliente');
       }
 
+      // Actualizar estado local inmediatamente
       setClientes(clientes.filter((cliente) => cliente.id !== clienteToDelete));
+      // Invalidar cache global de clientes para que otros componentes se actualicen
+      queryClient.invalidateQueries({ queryKey: ['clientes', 'list'] });
       toast({
         title: "Cliente eliminado",
         description: "El cliente ha sido eliminado correctamente",
@@ -144,6 +149,9 @@ export const useClientes = () => {
           description: "El nuevo cliente ha sido agregado correctamente"
         });
       }
+
+      // Invalidar cache global de clientes para que se refresque con los cambios
+      queryClient.invalidateQueries({ queryKey: ['clientes', 'list'] });
 
       if (options.closeDialog) {
         setIsDialogOpen(false);

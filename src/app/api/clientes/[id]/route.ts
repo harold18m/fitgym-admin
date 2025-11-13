@@ -10,7 +10,7 @@ export async function GET(
 ) {
     try {
         const cliente = await prisma.clientes.findUnique({
-            where: { 
+            where: {
                 id: params.id,
                 deleted_at: null // Solo clientes no eliminados
             },
@@ -74,7 +74,7 @@ export async function PUT(
         if (body.estado !== undefined) updateData.estado = body.estado as EstadoCliente;
 
         const cliente = await prisma.clientes.update({
-            where: { 
+            where: {
                 id: params.id,
                 deleted_at: null // Solo actualizar clientes no eliminados
             },
@@ -110,7 +110,7 @@ export async function DELETE(
 
         // Verificar que el cliente existe y no está ya eliminado
         const cliente = await prisma.clientes.findUnique({
-            where: { 
+            where: {
                 id: clienteId,
                 deleted_at: null // Solo clientes no eliminados
             },
@@ -126,14 +126,14 @@ export async function DELETE(
         // Realizar eliminación lógica
         const clienteEliminado = await prisma.clientes.update({
             where: { id: clienteId },
-            data: { 
+            data: {
                 deleted_at: new Date(),
                 // Opcional: cambiar estado a inactivo
                 estado: 'suspendida'
             },
         });
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             success: true,
             message: 'Cliente eliminado correctamente',
             cliente: {
@@ -144,7 +144,7 @@ export async function DELETE(
         });
     } catch (error: any) {
         console.error('Error al eliminar cliente:', error);
-        
+
         // Manejar errores específicos de Prisma
         if (error.code === 'P2025') {
             return NextResponse.json(
@@ -152,13 +152,25 @@ export async function DELETE(
                 { status: 404 }
             );
         }
-        
+
         return NextResponse.json(
-            { 
+            {
                 error: 'Error al eliminar cliente',
-                details: error.message 
+                details: error.message
             },
             { status: 500 }
         );
     }
+}
+
+// OPTIONS - Soporte para preflight CORS (evita 405 en peticiones no-simples)
+export async function OPTIONS(
+    request: Request,
+    { params }: { params: { id?: string } }
+) {
+    const headers = new Headers();
+    headers.set('Access-Control-Allow-Origin', '*');
+    headers.set('Access-Control-Allow-Methods', 'GET, PUT, DELETE, OPTIONS');
+    headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return new NextResponse(null, { status: 204, headers });
 }

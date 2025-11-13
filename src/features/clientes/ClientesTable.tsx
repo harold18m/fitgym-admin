@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Edit, Trash2, Calendar, AlertTriangle } from "lucide-react";
 import type { clientes } from "@prisma/client";
 import { useMembershipExpiration } from "@/hooks/useMembershipExpiration";
@@ -84,6 +84,7 @@ export function ClientesTable({
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <Avatar>
+                            <AvatarImage src={cliente.avatar_url || undefined} />
                             <AvatarFallback>
                               {cliente.nombre.split(' ').map(n => n[0]).join('')}
                             </AvatarFallback>
