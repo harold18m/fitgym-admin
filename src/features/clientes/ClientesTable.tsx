@@ -80,7 +80,7 @@ export function ClientesTable({
                 clientes.map((cliente) => {
                   const status = getMembershipStatus(cliente.fecha_fin);
                   return (
-                    <TableRow key={cliente.id}>
+                    <TableRow key={cliente.id} id={`cliente-${cliente.id}`}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <Avatar>
@@ -161,7 +161,7 @@ export function ClientesTable({
             clientes.map((cliente) => {
               const status = getMembershipStatus(cliente.fecha_fin);
               return (
-                <Card key={cliente.id} className="p-4">
+                <Card key={cliente.id} id={`cliente-${cliente.id}`} className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-10 w-10">

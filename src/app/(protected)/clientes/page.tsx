@@ -6,6 +6,8 @@ import { ClientesTable } from "@/features/clientes/ClientesTable";
 import { ClienteForm } from "@/features/clientes/ClienteForm";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useClientes } from "@/features/clientes/useClientes";
+import { useEffect } from 'react';
+import { authenticatedFetch } from '@/lib/fetch-utils';
 
 export default function Clientes() {
   const {
@@ -26,6 +28,32 @@ export default function Clientes() {
     saveCliente,
     fetchClientes,
   } = useClientes();
+
+  useEffect(() => {
+    const openFromHash = async () => {
+      if (typeof window === 'undefined') return;
+      const hash = window.location.hash;
+      if (!hash || !hash.startsWith('#cliente-')) return;
+      const id = hash.replace('#cliente-', '');
+      try {
+        const resp = await authenticatedFetch(`/api/clientes/${id}`);
+        if (!resp.ok) return;
+        const cliente = await resp.json();
+        if (cliente) {
+          handleEdit(cliente);
+          const el = document.getElementById(`cliente-${id}`);
+          if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+        }
+      } catch (err) {
+        console.error('Error abriendo cliente desde hash:', err);
+      }
+    };
+
+    openFromHash();
+    const onHash = () => openFromHash();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [handleEdit]);
 
   return (
     <div className="space-y-4">

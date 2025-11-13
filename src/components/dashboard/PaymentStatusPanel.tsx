@@ -9,10 +9,10 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, RefreshCw, ArrowBigRight, SquareArrowOutUpRight } from "lucide-react";
 import { authenticatedGet, authenticatedPost } from "@/lib/fetch-utils";
+import { useRouter } from "next/navigation";
 import { AvatarImage } from "@radix-ui/react-avatar";
-import { JsonObject } from "@prisma/client/runtime/library";
 
 interface ClienteItem {
   id: string;
@@ -49,6 +49,9 @@ export function PaymentStatusPanel() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Usamos enlaces con fragmentos; manejamos clicks para asegurar nueva pestaña cuando se usa modifier
+  const router = useRouter();
 
   const Section = ({
     title,
@@ -104,14 +107,24 @@ export function PaymentStatusPanel() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      title="Registrar cliente"
-                      onClick={() => (c.id)}
-                    >
-                      <RefreshCw className="h-3 w-3" />
+                    <Button asChild variant="ghost" size="sm" className="h-6 px-2" title="Ver cliente">
+                      <a
+                        href={`/clientes#cliente-${c.id}`}
+                        onClick={(e) => {
+                          const href = `/clientes#cliente-${c.id}`;
+                          const isModifier = e.metaKey || e.ctrlKey || e.shiftKey || (e.button === 1);
+                          if (isModifier) {
+                            // permitir abrir en nueva pestaña explícitamente
+                            window.open(href, "_blank", "noopener,noreferrer");
+                            return;
+                          }
+                          // navegación cliente dentro de la app
+                          e.preventDefault();
+                          router.push(href);
+                        }}
+                      >
+                        <SquareArrowOutUpRight className="h-4 w-4" />
+                      </a>
                     </Button>
                   </div>
                 </div>
