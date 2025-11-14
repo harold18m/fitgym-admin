@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     description: "Administración de gimnasio",
     icons: {
         icon: "/fitgym-logo.png",
-        shortcut: "/favicon-16x16.png",
-        apple: "/apple-touch-icon.png",
+        // shortcut: "/favicon-16x16.png",
+        // apple: "/apple-touch-icon.png",
     },
 };

@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { EstadoCliente } from '@prisma/client';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // GET - Obtener todos los clientes
 export async function GET(request: Request) {
     try {
