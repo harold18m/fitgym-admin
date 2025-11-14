@@ -29,8 +29,9 @@ export async function GET(request: Request) {
         return NextResponse.json(clientes);
     } catch (error) {
         console.error('Error al obtener clientes:', error);
+        const message = error instanceof Error ? error.message : 'Error desconocido';
         return NextResponse.json(
-            { error: 'Error al obtener clientes' },
+            { error: 'Error al obtener clientes', message },
             { status: 500 }
         );
     }
@@ -74,8 +75,9 @@ export async function POST(request: Request) {
         return NextResponse.json(cliente, { status: 201 });
     } catch (error) {
         console.error('Error al crear cliente:', error);
+        const message = error instanceof Error ? error.message : 'Error desconocido';
         return NextResponse.json(
-            { error: 'Error al crear cliente' },
+            { error: 'Error al crear cliente', message },
             { status: 500 }
         );
     }

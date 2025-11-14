@@ -63,8 +63,9 @@ export async function GET(request: Request) {
         return NextResponse.json(expiringMemberships);
     } catch (error) {
         console.error('Error al obtener membresías próximas a vencer:', error);
+        const message = error instanceof Error ? error.message : 'Error desconocido';
         return NextResponse.json(
-            { error: 'Error al obtener las membresías próximas a vencer' },
+            { error: 'Error al obtener las membresías próximas a vencer', message },
             { status: 500 }
         );
     }

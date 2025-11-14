@@ -4,7 +4,7 @@ import { clientesKeys } from '@/queries/clientesQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from "@/hooks/use-toast";
 import { useMembresias } from "@/hooks/useMembresias";
-import { authenticatedFetch } from "@/lib/fetch-utils";
+import { authenticatedFetch, authenticatedGet } from "@/lib/fetch-utils";
 import type { clientes, EstadoCliente } from "@prisma/client";
 
 // Tipos para los datos del formulario
@@ -39,13 +39,7 @@ export const useClientes = () => {
       // Si ya tenemos datos en cache, no mostrar el spinner inicial
       const cached = queryClient.getQueryData(clientesKeys.lists()) as clientes[] | undefined;
       if (!cached) setLoading(true);
-      const response = await authenticatedFetch('/api/clientes');
-
-      if (!response.ok) {
-        throw new Error('Error al cargar clientes');
-      }
-
-      const data = await response.json();
+      const data = await authenticatedGet<clientes[]>('/api/clientes');
       setClientes(data);
       // Escribir en cache para que otros consumidores lo vean inmediatamente
       queryClient.setQueryData(clientesKeys.lists(), data);
@@ -140,7 +134,8 @@ export const useClientes = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Error al guardar cliente');
+        const err = await response.json().catch(() => ({ error: 'Error al guardar cliente' }));
+        throw new Error(err.error || err.message || 'Error al guardar cliente');
       }
 
       const data = await response.json();

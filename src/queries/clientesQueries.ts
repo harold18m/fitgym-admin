@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { authenticatedFetch } from '@/lib/fetch-utils';
+import { authenticatedGet, authenticatedFetch } from '@/lib/fetch-utils';
 
 export interface Cliente {
     id: string;
@@ -30,38 +30,22 @@ export const clientesKeys = {
 
 // Fetch clientes
 async function fetchClientes(): Promise<Cliente[]> {
-    const response = await authenticatedFetch('/api/clientes');
-    if (!response.ok) {
-        throw new Error('Error al cargar clientes');
-    }
-    return response.json();
+    return authenticatedGet<Cliente[]>('/api/clientes');
 }
 
 // Fetch cliente por ID
 async function fetchClienteById(id: string): Promise<Cliente> {
-    const response = await authenticatedFetch(`/api/clientes/${id}`);
-    if (!response.ok) {
-        throw new Error('Cliente no encontrado');
-    }
-    return response.json();
+    return authenticatedGet<Cliente>(`/api/clientes/${id}`);
 }
 
 // Validar DNI
 async function validarDni(dni: string): Promise<{ existe: boolean; cliente: Cliente | null }> {
-    const response = await authenticatedFetch(`/api/clientes/validar-dni?dni=${dni}`);
-    if (!response.ok) {
-        throw new Error('Error al validar DNI');
-    }
-    return response.json();
+    return authenticatedGet<{ existe: boolean; cliente: Cliente | null }>(`/api/clientes/validar-dni?dni=${dni}`);
 }
 
 // Fetch clientes por vencer
 async function fetchClientesExpiring(days: number = 7): Promise<Cliente[]> {
-    const response = await authenticatedFetch(`/api/clientes/expiring?days=${days}`);
-    if (!response.ok) {
-        throw new Error('Error al cargar clientes por vencer');
-    }
-    return response.json();
+    return authenticatedGet<Cliente[]>(`/api/clientes/expiring?days=${days}`);
 }
 
 // Hook: useClientes
