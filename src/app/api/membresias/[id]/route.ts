@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { updateMembresiaSchema } from '@/lib/validations/membresia-schemas';
 
 export const runtime = 'nodejs';
 
@@ -38,17 +39,26 @@ export async function PUT(
     try {
         const body = await request.json();
 
+        const parsed = updateMembresiaSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Datos inválidos', details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+        const data = parsed.data;
+
         const membresia = await prisma.membresias.update({
             where: { id: params.id },
             data: {
-                ...(body.nombre !== undefined && { nombre: body.nombre }),
-                ...(body.descripcion !== undefined && { descripcion: body.descripcion }),
-                ...(body.tipo !== undefined && { tipo: body.tipo }),
-                ...(body.modalidad !== undefined && { modalidad: body.modalidad }),
-                ...(body.precio !== undefined && { precio: body.precio }),
-                ...(body.duracion !== undefined && { duracion: body.duracion }),
-                ...(body.caracteristicas !== undefined && { caracteristicas: body.caracteristicas }),
-                ...(body.activa !== undefined && { activa: body.activa }),
+                ...(data.nombre !== undefined && { nombre: data.nombre }),
+                ...(data.descripcion !== undefined && { descripcion: data.descripcion }),
+                ...(data.tipo !== undefined && { tipo: data.tipo }),
+                ...(data.modalidad !== undefined && { modalidad: data.modalidad }),
+                ...(data.precio !== undefined && { precio: data.precio }),
+                ...(data.duracion !== undefined && { duracion: data.duracion }),
+                ...(data.caracteristicas !== undefined && { caracteristicas: data.caracteristicas }),
+                ...(data.activa !== undefined && { activa: data.activa }),
             },
         });
 

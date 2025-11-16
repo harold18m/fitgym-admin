@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createMembresiaSchema } from '@/lib/validations/membresia-schemas';
 
 export const runtime = 'nodejs';
 
@@ -51,16 +52,25 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
+        const parsed = createMembresiaSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Datos inválidos', details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+        const data = parsed.data;
+
         const membresia = await prisma.membresias.create({
             data: {
-                nombre: body.nombre,
-                descripcion: body.descripcion,
-                tipo: body.tipo,
-                modalidad: body.modalidad,
-                precio: body.precio,
-                duracion: body.duracion,
-                caracteristicas: body.caracteristicas || [],
-                activa: body.activa ?? true,
+                nombre: data.nombre,
+                descripcion: data.descripcion ?? null,
+                tipo: data.tipo,
+                modalidad: data.modalidad,
+                precio: data.precio,
+                duracion: data.duracion,
+                caracteristicas: data.caracteristicas,
+                activa: data.activa,
             },
         });
 

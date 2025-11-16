@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json(expiringMemberships);
     } catch (error) {
-        console.error('Error al obtener membresías próximas a vencer:', error);
+        logger.error('Error al obtener membresías próximas a vencer', { error });
         const message = error instanceof Error ? error.message : 'Error desconocido';
         return NextResponse.json(
             { error: 'Error al obtener las membresías próximas a vencer', message },

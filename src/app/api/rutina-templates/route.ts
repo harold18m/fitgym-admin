@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createRutinaTemplateSchema } from '@/lib/validations/rutina-schemas';
 
 export const runtime = 'nodejs';
 
@@ -40,12 +41,21 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
+        const parsed = createRutinaTemplateSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Datos inválidos', details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+        const data = parsed.data;
+
         const template = await prisma.rutina_templates.create({
             data: {
                 id: crypto.randomUUID(),
-                nombre: body.nombre,
-                descripcion: body.descripcion || null,
-                creado_por: body.creado_por || null,
+                nombre: data.nombre,
+                descripcion: data.descripcion ?? null,
+                creado_por: data.creado_por ?? null,
                 updated_at: new Date(),
             },
         });

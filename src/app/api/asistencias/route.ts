@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createAsistenciaSchema } from '@/lib/validations/asistencia-schemas';
 
 // GET /api/asistencias - Obtener todas las asistencias
 export async function GET(request: Request) {
@@ -60,14 +61,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { cliente_id, evento_id, estado, notas } = body;
 
-        if (!cliente_id) {
+        const parsed = createAsistenciaSchema.safeParse(body);
+        if (!parsed.success) {
             return NextResponse.json(
-                { error: 'cliente_id es requerido' },
+                { error: 'Datos inválidos', details: parsed.error.flatten() },
                 { status: 400 }
             );
         }
+        const { cliente_id, evento_id, estado, notas } = parsed.data;
 
         // Verificar que el cliente existe
         const cliente = await prisma.clientes.findUnique({

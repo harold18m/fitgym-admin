@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { EstadoCliente } from '@prisma/client';
+import { createClienteSchema } from '@/lib/validations/cliente-schemas';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json(clientes);
     } catch (error) {
-        console.error('Error al obtener clientes:', error);
+        logger.error('Error al obtener clientes', { error });
         const message = error instanceof Error ? error.message : 'Error desconocido';
         return NextResponse.json(
             { error: 'Error al obtener clientes', message },
@@ -42,21 +44,30 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
 
+        const parsed = createClienteSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Datos inválidos', details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+        const data = parsed.data;
+
         // Construir data para create usando relación anidada para membresía
         const createData: any = {
-            nombre: body.nombre,
-            email: body.email,
-            telefono: body.telefono,
-            dni: body.dni || null,
-            fecha_nacimiento: body.fecha_nacimiento ? new Date(body.fecha_nacimiento) : null,
-            fecha_inicio: body.fecha_inicio ? new Date(body.fecha_inicio) : null,
-            fecha_fin: body.fecha_fin ? new Date(body.fecha_fin) : null,
-            estado: (body.estado as EstadoCliente) || 'activa',
+            nombre: data.nombre,
+            email: data.email,
+            telefono: data.telefono,
+            dni: data.dni ?? null,
+            fecha_nacimiento: data.fecha_nacimiento ? new Date(data.fecha_nacimiento) : null,
+            fecha_inicio: data.fecha_inicio ? new Date(data.fecha_inicio) : null,
+            fecha_fin: data.fecha_fin ? new Date(data.fecha_fin) : null,
+            estado: (data.estado as EstadoCliente) || 'activa',
         };
 
-        if (body.membresia_id) {
+        if (data.membresia_id) {
             // Conectar relación si se envía un id de membresía
-            createData.membresias = { connect: { id: body.membresia_id } };
+            createData.membresias = { connect: { id: data.membresia_id } };
         }
 
         const cliente = await prisma.clientes.create({
@@ -74,7 +85,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json(cliente, { status: 201 });
     } catch (error) {
-        console.error('Error al crear cliente:', error);
+        logger.error('Error al crear cliente', { error });
         const message = error instanceof Error ? error.message : 'Error desconocido';
         return NextResponse.json(
             { error: 'Error al crear cliente', message },

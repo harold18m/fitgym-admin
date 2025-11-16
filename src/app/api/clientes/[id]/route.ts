@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { EstadoCliente } from '@prisma/client';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { updateClienteSchema } from '@/lib/validations/cliente-schemas';
+import { logger } from '@/lib/logger';
 
 // GET - Obtener un cliente por ID
 export async function GET(
@@ -35,7 +37,7 @@ export async function GET(
 
         return NextResponse.json(cliente);
     } catch (error) {
-        console.error('Error al obtener cliente:', error);
+        logger.error('Error al obtener cliente', { error, id: params.id });
         return NextResponse.json(
             { error: 'Error al obtener cliente' },
             { status: 500 }
@@ -50,34 +52,42 @@ export async function PUT(
 ) {
     try {
         const body = await request.json();
+        const parsed = updateClienteSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Datos inválidos', details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+        const data = parsed.data;
 
         // Construir objeto de actualización solo con campos presentes
         const updateData: any = {};
 
-        if (body.nombre !== undefined) updateData.nombre = body.nombre;
-        if (body.email !== undefined) updateData.email = body.email;
-        if (body.telefono !== undefined) updateData.telefono = body.telefono;
-        if (body.dni !== undefined) updateData.dni = body.dni || null;
-        if (body.avatar_url !== undefined) updateData.avatar_url = body.avatar_url;
-        if (body.fecha_nacimiento !== undefined) {
-            updateData.fecha_nacimiento = body.fecha_nacimiento ? new Date(body.fecha_nacimiento) : null;
+        if (data.nombre !== undefined) updateData.nombre = data.nombre;
+        if (data.email !== undefined) updateData.email = data.email;
+        if (data.telefono !== undefined) updateData.telefono = data.telefono;
+        if (data.dni !== undefined) updateData.dni = data.dni || null;
+        if (data.avatar_url !== undefined) updateData.avatar_url = data.avatar_url;
+        if (data.fecha_nacimiento !== undefined) {
+            updateData.fecha_nacimiento = data.fecha_nacimiento ? new Date(data.fecha_nacimiento) : null;
         }
-        if (body.membresia_id !== undefined) {
-            if (body.membresia_id) {
+        if (data.membresia_id !== undefined) {
+            if (data.membresia_id) {
                 // Conectar la membresía al cliente
-                updateData.membresias = { connect: { id: body.membresia_id } };
+                updateData.membresias = { connect: { id: data.membresia_id } };
             } else {
                 // Desconectar la membresía (establecer a null)
                 updateData.membresias = { disconnect: true };
             }
         }
-        if (body.nombre_membresia !== undefined) updateData.nombre_membresia = body.nombre_membresia || null;
-        if (body.tipo_membresia !== undefined) updateData.tipo_membresia = body.tipo_membresia || null;
-        if (body.fecha_inicio !== undefined) {
-            updateData.fecha_inicio = body.fecha_inicio ? new Date(body.fecha_inicio) : null;
+        if (data.nombre_membresia !== undefined) updateData.nombre_membresia = data.nombre_membresia || null;
+        if (data.tipo_membresia !== undefined) updateData.tipo_membresia = data.tipo_membresia || null;
+        if (data.fecha_inicio !== undefined) {
+            updateData.fecha_inicio = data.fecha_inicio ? new Date(data.fecha_inicio) : null;
         }
-        if (body.fecha_fin !== undefined) {
-            updateData.fecha_fin = body.fecha_fin ? new Date(body.fecha_fin) : null;
+        if (data.fecha_fin !== undefined) {
+            updateData.fecha_fin = data.fecha_fin ? new Date(data.fecha_fin) : null;
         }
         if (body.estado !== undefined) updateData.estado = body.estado as EstadoCliente;
 

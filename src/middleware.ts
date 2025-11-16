@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getSupabaseToken, validateSupabaseToken, isAdmin } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function middleware(request: NextRequest) {
     try {
@@ -25,6 +26,12 @@ export async function middleware(request: NextRequest) {
         }
 
         // --- SOLO RUTAS API A PARTIR DE AQUÍ ---
+
+        // Rate limiting para rutas API (best-effort)
+        if (isApiRoute) {
+            const rl = checkRateLimit(request);
+            if (rl) return rl;
+        }
 
         // Rutas API públicas (no requieren autenticación)
         const publicApiRoutes = [
