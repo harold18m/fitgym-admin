@@ -148,7 +148,7 @@ const Membresias = () => {
       case 'mensual':
         return 'mes(es)';
       case 'trimestral':
-        return 'trimestre(s)';
+        return 'mes(es)';
       default:
         return 'período(s)';
     }

@@ -64,7 +64,8 @@ export const useMembresias = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Error al actualizar membresía');
+        const err = await response.json().catch(() => ({ error: 'Error al actualizar membresía' }));
+        throw new Error(err.error || err.message || 'Error al actualizar membresía');
       }
 
       const data = await response.json();

@@ -72,7 +72,7 @@ export async function PUT(
         }
         console.error('Error al actualizar membresía:', error);
         return NextResponse.json(
-            { error: 'Error al actualizar la membresía' },
+            { error: 'Error al actualizar la membresía', message: error?.message },
             { status: 500 }
         );
     }

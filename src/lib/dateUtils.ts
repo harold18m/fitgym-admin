@@ -104,3 +104,43 @@ export function isValidDateString(dateString: string | null | undefined): boolea
         return false;
     }
 }
+
+/**
+ * Calcula la edad en años cumplidos a partir de una fecha de nacimiento
+ * Acepta Date, ISO string, o yyyy-MM-dd.
+ * Retorna null si la fecha es inválida.
+ */
+export function calculateAge(date: Date | string | null | undefined): number | null {
+    if (!date) return null;
+    let birth: Date | null = null;
+
+    try {
+        if (date instanceof Date) {
+            birth = date;
+        } else if (typeof date === 'string') {
+            if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+                // ISO completa -> tomar solo fecha
+                const dateOnly = date.split('T')[0];
+                birth = parse(dateOnly, DATE_STORAGE_FORMAT, new Date());
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                birth = parse(date, DATE_STORAGE_FORMAT, new Date());
+            } else {
+                // Intento parsear como ISO genérica
+                const parsed = new Date(date);
+                if (!isNaN(parsed.getTime())) birth = parsed;
+            }
+        }
+    } catch {
+        birth = null;
+    }
+
+    if (!birth || isNaN(birth.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const hasNotHadBirthdayYet =
+        today.getMonth() < birth.getMonth() ||
+        (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
+    if (hasNotHadBirthdayYet) age -= 1;
+    return age >= 0 && age < 130 ? age : null; // sanity bounds
+}

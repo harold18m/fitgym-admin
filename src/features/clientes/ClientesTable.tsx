@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Edit, Trash2, Calendar, AlertTriangle } from "lucide-react";
 import type { clientes } from "@prisma/client";
 import { useMembershipExpiration } from "@/hooks/useMembershipExpiration";
-import { formatDateToDisplay, formatDateToStorage } from "@/lib/dateUtils";
+import { formatDateToDisplay, calculateAge } from "@/lib/dateUtils";
 
 interface ClientesTableProps {
   clientes: clientes[];
@@ -103,10 +103,12 @@ export function ClientesTable({
                         </div>
                       </TableCell>
                       <TableCell>
-                        {cliente.fecha_nacimiento ?
-                          formatDateToDisplay(cliente.fecha_nacimiento) :
-                          'No especificada'
-                        }
+                        {(() => {
+                          if (!cliente.fecha_nacimiento) return "No especificada";
+                          const fecha = formatDateToDisplay(cliente.fecha_nacimiento);
+                          const edad = calculateAge(cliente.fecha_nacimiento);
+                          return edad != null ? `${fecha} (${edad} años)` : fecha;
+                        })()}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
@@ -206,10 +208,12 @@ export function ClientesTable({
                     <div>
                       <p className="text-muted-foreground">Fecha Nacimiento:</p>
                       <p>
-                        {cliente.fecha_nacimiento ?
-                          new Date(cliente.fecha_nacimiento).toLocaleDateString() :
-                          'No especificada'
-                        }
+                        {(() => {
+                          if (!cliente.fecha_nacimiento) return "No especificada";
+                          const fecha = formatDateToDisplay(cliente.fecha_nacimiento);
+                          const edad = calculateAge(cliente.fecha_nacimiento);
+                          return edad != null ? `${fecha} (${edad} años)` : fecha;
+                        })()}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2 pt-2">
