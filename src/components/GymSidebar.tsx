@@ -55,8 +55,6 @@ const sidebarSections: { label: string; items: SidebarItem[] }[] = [
       { icon: UserCheck, label: 'Aforo', href: '/aforo' },
       { icon: Users, label: 'Clientes', href: '/clientes' },
       { icon: CreditCard, label: 'Membresías', href: '/membresias' },
-      { icon: Dumbbell, label: 'Ejercicios', href: '/ejercicios' },
-      { icon: Dumbbell, label: 'Rutinas', href: '/rutinas' },
       // { icon: Calendar, label: 'Calendario', href: '/calendario' },
     ],
   },

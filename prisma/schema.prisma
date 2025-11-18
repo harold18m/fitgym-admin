@@ -49,12 +49,6 @@ enum TipoEvento {
     otro
 }
 
-enum EstadoRutina {
-    activa
-    completada
-    pausada
-}
-
 enum EstadoTarjeta {
     activa
     inactiva
@@ -106,7 +100,6 @@ model clientes {
     membresias      membresias?      @relation(fields: [membresia_id], references: [id])
     asistencias_rel asistencias[]
     eventos         eventos[]
-    rutinas         rutinas[]
     tarjetas_acceso tarjetas_acceso?
 
     @@index([dni])
@@ -158,22 +151,6 @@ model membresias {
     @@index([activa])
 }
 
-model ejercicios {
-    id          String   @id @default(uuid()) @db.Uuid
-    nombre      String   @db.VarChar(255)
-    categoria   String?  @db.VarChar(50)
-    dificultad  String?  @db.VarChar(20)
-    musculos    String[]
-    descripcion String?
-    imagen_url  String?
-    video_url   String?
-    created_at  DateTime @default(now()) @db.Timestamptz(6)
-    updated_at  DateTime @updatedAt @db.Timestamptz(6)
-
-    @@index([categoria])
-    @@index([dificultad])
-}
-
 model perfiles {
     id              String   @id @db.Uuid
     user_id         String   @unique @db.Uuid
@@ -182,58 +159,6 @@ model perfiles {
     avatar_url      String?
     created_at      DateTime @default(now()) @db.Timestamptz(6)
     updated_at      DateTime @db.Timestamptz(6)
-}
-
-model rutina_ejercicios {
-    id           String   @id @db.Uuid
-    rutina_id    String   @db.Uuid
-    nombre       String   @db.VarChar(255)
-    sets         Int?
-    repeticiones Int?
-    dia          String?  @db.VarChar(20)
-    notas        String?
-    orden        Int?
-    created_at   DateTime @default(now()) @db.Timestamptz(6)
-    rutinas      rutinas  @relation(fields: [rutina_id], references: [id], onDelete: Cascade)
-}
-
-model rutina_template_ejercicios {
-    id               String           @id @db.Uuid
-    template_id      String           @db.Uuid
-    ejercicio_id     String?          @db.Uuid
-    nombre           String?          @db.VarChar(255)
-    sets             Int?
-    repeticiones     Int?
-    peso_sugerido    Decimal?         @db.Decimal(10, 2)
-    dia              String?          @db.VarChar(20)
-    notas            String?
-    orden            Int?
-    created_at       DateTime         @default(now()) @db.Timestamptz(6)
-    rutina_templates rutina_templates @relation(fields: [template_id], references: [id], onDelete: Cascade)
-}
-
-model rutina_templates {
-    id                         String                       @id @db.Uuid
-    nombre                     String                       @db.VarChar(255)
-    descripcion                String?
-    creado_por                 String?                      @db.VarChar(255)
-    created_at                 DateTime                     @default(now()) @db.Timestamptz(6)
-    updated_at                 DateTime                     @db.Timestamptz(6)
-    rutina_template_ejercicios rutina_template_ejercicios[]
-}
-
-model rutinas {
-    id                String              @id @db.Uuid
-    cliente_id        String              @db.Uuid
-    nombre            String              @db.VarChar(255)
-    descripcion       String?
-    estado            String              @default("activa") @db.VarChar(20)
-    fecha_inicio      DateTime?           @db.Timestamptz(6)
-    fecha_fin         DateTime?           @db.Timestamptz(6)
-    created_at        DateTime            @default(now()) @db.Timestamptz(6)
-    updated_at        DateTime            @db.Timestamptz(6)
-    rutina_ejercicios rutina_ejercicios[]
-    clientes          clientes            @relation(fields: [cliente_id], references: [id])
 }
 
 model tarjetas_acceso {
