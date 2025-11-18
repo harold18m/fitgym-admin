@@ -105,6 +105,13 @@ export function ClienteForm({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  // Estado de cuenta (Auth) para clientes existentes
+  const [accountExists, setAccountExists] = useState<boolean | null>(null);
+  const [accountCheckLoading, setAccountCheckLoading] = useState(false);
+  const [accountCreateLoading, setAccountCreateLoading] = useState(false);
+  const [accountError, setAccountError] = useState<string>("");
+  const [newAccPassword, setNewAccPassword] = useState<string>("");
+  const [showNewAccPassword, setShowNewAccPassword] = useState(false);
 
   // Reset step when dialog opens/closes
   useEffect(() => {
@@ -116,6 +123,12 @@ export function ClienteForm({
       setPhotoFile(null);
       setPhotoPreview(null);
       setTempPassword("");
+      setAccountExists(null);
+      setAccountCheckLoading(false);
+      setAccountCreateLoading(false);
+      setAccountError("");
+      setNewAccPassword("");
+      setShowNewAccPassword(false);
     }
   }, [isOpen, clienteActual]);
 
@@ -189,14 +202,11 @@ export function ClienteForm({
     await uploadPhotoForClient(clienteActual.id);
   };
 
-  // Generar contraseña temporal amigable
+  // Generar contraseña temporal = DNI del cliente
   const generatePassword = (): string => {
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    const pass = Array.from({ length: 10 })
-      .map(() => alphabet[Math.floor(Math.random() * alphabet.length)])
-      .join("");
-    setTempPassword(pass);
-    return pass;
+    const dni = form.getValues("dni") || "";
+    setTempPassword(dni);
+    return dni;
   };
 
   const copyPassword = async () => {
@@ -335,6 +345,30 @@ export function ClienteForm({
         fecha_inicio: formatDate(clienteActual.fecha_inicio),
         fecha_fin: formatDate(clienteActual.fecha_fin),
       });
+
+      // Prefijar contraseña sugerida para crear cuenta = DNI
+      setNewAccPassword(clienteActual.dni || "");
+
+      // Verificar si el cliente ya tiene cuenta en Auth
+      (async () => {
+        try {
+          setAccountCheckLoading(true);
+          setAccountError("");
+          const resp = await authenticatedFetch(`/api/clientes/${clienteActual.id}/account`, { method: 'GET' });
+          const json = await resp.json();
+          if (!resp.ok) {
+            setAccountExists(null);
+            setAccountError(json?.error || 'No se pudo verificar la cuenta');
+          } else {
+            setAccountExists(!!json.exists);
+          }
+        } catch (e: any) {
+          setAccountExists(null);
+          setAccountError(e?.message || 'No se pudo verificar la cuenta');
+        } finally {
+          setAccountCheckLoading(false);
+        }
+      })();
     } else {
       form.reset({
         nombre: "",
@@ -1016,50 +1050,129 @@ export function ClienteForm({
 
                           {/* Sección de contraseña */}
                           {clienteActual ? (
-                            // Edición: mostrar contraseña actual y opción de cambiar
                             <div className="space-y-3 pt-2">
-                              <div>
-                                <span className="text-muted-foreground">Contraseña Actual:</span>
-                                <div className="flex gap-2 mt-1">
-                                  <Input
-                                    type={showCurrentPassword ? "text" : "password"}
-                                    value={currentPassword}
-                                    readOnly
-                                    className="font-mono bg-background"
-                                    placeholder="No disponible"
-                                  />
+                              {accountCheckLoading ? (
+                                <p className="text-xs text-muted-foreground">Verificando cuenta...</p>
+                              ) : accountExists === false ? (
+                                <div className="space-y-2">
+                                  <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+                                    <p className="text-amber-800 text-sm">Este cliente no tiene cuenta creada.</p>
+                                  </div>
+                                  <Label htmlFor="new-acc-password">Crear contraseña (sugerida: DNI)</Label>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      id="new-acc-password"
+                                      type={showNewAccPassword ? 'text' : 'password'}
+                                      value={newAccPassword}
+                                      onChange={(e) => setNewAccPassword(e.target.value)}
+                                      className="font-mono"
+                                      placeholder="Mínimo 6 caracteres"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => setShowNewAccPassword(!showNewAccPassword)}
+                                      title={showNewAccPassword ? 'Ocultar' : 'Mostrar'}
+                                    >
+                                      {showNewAccPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={async () => { try { await navigator.clipboard.writeText(newAccPassword); } catch { } }}
+                                      title="Copiar contraseña"
+                                      disabled={!newAccPassword}
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  {newAccPassword && newAccPassword.length < 6 && (
+                                    <p className="text-xs text-red-500">La contraseña debe tener al menos 6 caracteres</p>
+                                  )}
+                                  {accountError && (
+                                    <p className="text-xs text-red-600">{accountError}</p>
+                                  )}
                                   <Button
                                     type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                    title={showCurrentPassword ? "Ocultar" : "Mostrar"}
+                                    onClick={async () => {
+                                      if (!clienteActual?.id) return;
+                                      if (!newAccPassword || newAccPassword.length < 6) {
+                                        setAccountError('La contraseña debe tener al menos 6 caracteres');
+                                        return;
+                                      }
+                                      try {
+                                        setAccountCreateLoading(true);
+                                        setAccountError('');
+                                        const resp = await authenticatedFetch(`/api/clientes/${clienteActual.id}/account`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ password: newAccPassword })
+                                        });
+                                        const json = await resp.json();
+                                        if (!resp.ok || !json.ok) {
+                                          throw new Error(json?.error || 'No se pudo crear la cuenta');
+                                        }
+                                        setAccountExists(true);
+                                        setCurrentPassword(newAccPassword);
+                                      } catch (e: any) {
+                                        setAccountError(e?.message || 'No se pudo crear la cuenta');
+                                      } finally {
+                                        setAccountCreateLoading(false);
+                                      }
+                                    }}
+                                    disabled={accountCreateLoading || (newAccPassword?.length || 0) < 6}
                                   >
-                                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={copyCurrentPassword}
-                                    disabled={!currentPassword}
-                                    title="Copiar contraseña"
-                                  >
-                                    <Copy className="h-4 w-4" />
+                                    {accountCreateLoading ? 'Creando cuenta...' : 'Crear cuenta'}
                                   </Button>
                                 </div>
-                              </div>
+                              ) : (
+                                <>
+                                  <div>
+                                    <span className="text-muted-foreground">Contraseña Actual:</span>
+                                    <div className="flex gap-2 mt-1">
+                                      <Input
+                                        type={showCurrentPassword ? "text" : "password"}
+                                        value={currentPassword}
+                                        readOnly
+                                        className="font-mono bg-background"
+                                        placeholder="No disponible"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                        title={showCurrentPassword ? "Ocultar" : "Mostrar"}
+                                      >
+                                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={copyCurrentPassword}
+                                        disabled={!currentPassword}
+                                        title="Copiar contraseña"
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
 
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setIsChangingPassword(true)}
-                                className="w-full"
-                              >
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Cambiar Contraseña
-                              </Button>
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setIsChangingPassword(true)}
+                                    className="w-full"
+                                  >
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                    Cambiar Contraseña
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           ) : (
                             // Creación: mostrar contraseña temporal a generar
