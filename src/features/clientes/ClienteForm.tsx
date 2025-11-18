@@ -1040,16 +1040,17 @@ export function ClienteForm({
                       </div>
 
                       {/* Información de acceso */}
-                      <div className="bg-muted/50 p-4 rounded-lg">
-                        <h4 className="font-semibold mb-4">Información de Acceso</h4>
-                        <div className="space-y-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Usuario:</span>
-                            <p className="font-mono font-semibold">{form.getValues("dni")}</p>
-                          </div>
+                      {form.getValues("dni") && (
+                        <div className="bg-muted/50 p-4 rounded-lg">
+                          <h4 className="font-semibold mb-4">Información de Acceso</h4>
+                          <div className="space-y-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Usuario:</span>
+                              <p className="font-mono font-semibold">{form.getValues("dni")}</p>
+                            </div>
 
-                          {/* Sección de contraseña */}
-                          {clienteActual ? (
+                            {/* Sección de contraseña */}
+                            {clienteActual ? (
                             <div className="space-y-3 pt-2">
                               {accountCheckLoading ? (
                                 <p className="text-xs text-muted-foreground">Verificando cuenta...</p>
@@ -1220,6 +1221,7 @@ export function ClienteForm({
                           )}
                         </div>
                       </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

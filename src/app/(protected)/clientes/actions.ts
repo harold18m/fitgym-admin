@@ -1,6 +1,7 @@
 "use server";
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { randomUUID } from "crypto";
 
 type CrearCuentaResult = {
   ok: boolean;
@@ -53,6 +54,7 @@ export const crearCuentaCliente = async (clienteId: string): Promise<CrearCuenta
     const { error: perfilError } = await supabaseAdmin
       .from("perfiles")
       .upsert({
+        id: randomUUID(),
         user_id: userId,
         email: cliente.email,
         nombre_completo: cliente.nombre,

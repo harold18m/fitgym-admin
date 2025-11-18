@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -96,6 +97,7 @@ export async function POST(
         const { error: perfilError } = await supabaseAdmin
             .from('perfiles')
             .upsert({
+                id: randomUUID(),
                 user_id: userId,
                 email: cliente.email,
                 nombre_completo: cliente.nombre,
