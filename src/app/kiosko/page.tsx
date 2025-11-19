@@ -69,12 +69,13 @@ export default function Kiosko() {
   };
 
   const registrarAsistencia = async (
-    cliente: Database["public"]["Tables"]["clientes"]["Row"],
+    cliente: any,
     esDiario?: boolean
   ) => {
     const vencidaPorFecha = estaVencidaPorFecha(cliente.fecha_fin);
     const suspendida = cliente.estado === "suspendida";
     const vencidaEstado = cliente.estado === "vencida";
+    
     if (vencidaPorFecha || suspendida || vencidaEstado) {
       // Mostrar overlay de acceso denegado
       setUltimoCliente(cliente);
@@ -95,90 +96,76 @@ export default function Kiosko() {
       return;
     }
 
-    const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
+    try {
+      // Usar el mismo endpoint que RegistroAsistenciaCard
+      const response = await fetch("/api/asistencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cliente_id: cliente.id,
+          notas: "qr",
+        }),
+      });
 
-    const { data: yaHoy, error: errorCheck } = await supabase
-      .from("asistencias")
-      .select("id")
-      .eq("cliente_id", cliente.id)
-      .gte("fecha_asistencia", startOfDay.toISOString())
-      .lte("fecha_asistencia", endOfDay.toISOString());
+      const data = await response.json();
 
-    if (errorCheck) {
-      toast({ variant: "destructive", title: "Error", description: errorCheck.message });
-      return;
-    }
+      if (!response.ok) {
+        // Si ya registró hoy pero es diario, permitir acceso
+        if (data.error?.includes("ya registró su asistencia hoy") && esDiario) {
+          const hora = new Date().toTimeString().split(" ")[0];
+          setUltimoCliente(cliente);
+          setUltimaHora(hora);
 
-    if (yaHoy && yaHoy.length > 0) {
-      if (esDiario) {
-        // Membresía diaria: permitir acceso ilimitado sin duplicar registro (solo overlay)
-        const hora = new Date().toTimeString().split(" ")[0];
-        setUltimoCliente(cliente);
-        setUltimaHora(hora);
-
-        // Mostrar overlay de acceso concedido 5 segundos
-        setOverlayKind("granted");
-        setOverlayVisible(true);
-        if (overlayTimerRef.current) {
-          clearTimeout(overlayTimerRef.current);
-          overlayTimerRef.current = null;
+          // Mostrar overlay de acceso concedido
+          setOverlayKind("granted");
+          setOverlayVisible(true);
+          if (overlayTimerRef.current) {
+            clearTimeout(overlayTimerRef.current);
+            overlayTimerRef.current = null;
+          }
+          overlayTimerRef.current = window.setTimeout(() => {
+            setOverlayVisible(false);
+            setOverlayKind(null);
+            setOverlayDeniedReason(null);
+            setUltimoCliente(null);
+            setUltimoCodigoQR("");
+          }, 5000);
+          playAccessSound();
+          abrirCerradura();
+          return;
         }
-        overlayTimerRef.current = window.setTimeout(() => {
-          setOverlayVisible(false);
-          setOverlayKind(null);
-          setOverlayDeniedReason(null);
-          setUltimoCliente(null);
-          setUltimoCodigoQR("");
-        }, 5000);
-        // Sonido de acceso concedido
-        playAccessSound();
-        abrirCerradura();
-        return;
-      } else {
-        // No duplicar registro ni mostrar toast; mantener feedback mínimo
-        setUltimoCliente(cliente);
-        const hora = new Date().toTimeString().split(" ")[0];
-        setUltimaHora(hora);
-        return;
+        
+        throw new Error(data.error || "Error al registrar asistencia");
       }
+
+      const hora = new Date(data.fecha_asistencia).toTimeString().split(" ")[0];
+      setUltimoCliente(cliente);
+      setUltimaHora(hora);
+
+      // Mostrar overlay de acceso concedido
+      setOverlayKind("granted");
+      setOverlayVisible(true);
+      if (overlayTimerRef.current) {
+        clearTimeout(overlayTimerRef.current);
+        overlayTimerRef.current = null;
+      }
+      overlayTimerRef.current = window.setTimeout(() => {
+        setOverlayVisible(false);
+        setOverlayKind(null);
+        setOverlayDeniedReason(null);
+        setUltimoCliente(null);
+        setUltimoCodigoQR("");
+      }, 5000);
+      
+      playAccessSound();
+      abrirCerradura();
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error al registrar", 
+        description: error.message 
+      });
     }
-
-    const { data: inserted, error: errorInsert } = await supabase
-      .from("asistencias")
-      .insert({ cliente_id: cliente.id, estado: "presente", notas: "qr" })
-      .select("id, cliente_id, fecha_asistencia")
-      .single();
-
-    if (errorInsert) {
-      toast({ variant: "destructive", title: "Error al registrar", description: errorInsert.message });
-      return;
-    }
-
-    const hora = new Date(inserted?.fecha_asistencia || Date.now()).toTimeString().split(" ")[0];
-    setUltimoCliente(cliente);
-    setUltimaHora(hora);
-
-    // Mostrar overlay de acceso concedido 5 segundos y luego volver a la cámara
-    setOverlayKind("granted");
-    setOverlayVisible(true);
-    if (overlayTimerRef.current) {
-      clearTimeout(overlayTimerRef.current);
-      overlayTimerRef.current = null;
-    }
-    overlayTimerRef.current = window.setTimeout(() => {
-      setOverlayVisible(false);
-      setOverlayKind(null);
-      setOverlayDeniedReason(null);
-      setUltimoCliente(null);
-      setUltimoCodigoQR("");
-    }, 5000);
-    // Sonido de acceso concedido
-    playAccessSound();
-    abrirCerradura();
   };
 
   const conectarCerradura = async () => {
@@ -243,76 +230,94 @@ export default function Kiosko() {
     lastCodeRef.current = valor;
     lastTimeRef.current = now;
 
-    const { data: tarjeta, error: errorTarjeta } = await supabase
-      .from("tarjetas_acceso")
-      .select(`
-        codigo,
-        clientes (
-          id, 
-          nombre, 
-          dni, 
-          estado, 
-          avatar_url, 
-          fecha_fin, 
-          membresia_id,
-          membresias (
-            nombre,
-            modalidad
-          )
-        )
-      `)
-      .eq("codigo", valor)
-      .maybeSingle();
+    let cliente: any = null;
 
-    if (errorTarjeta) {
-      toast({ variant: "destructive", title: "Error buscando cliente", description: errorTarjeta.message });
-      return;
-    }
+    try {
+      // Usar la misma lógica que RegistroAsistenciaCard
+      if (valor.startsWith("CLIENT:")) {
+        const id = valor.slice(7);
+        const response = await fetch(`/api/clientes/${id}`);
+        
+        if (response.ok) {
+          cliente = await response.json();
+        }
+      } else {
+        // Buscar por código de tarjeta de acceso
+        const { data: tarjeta } = await supabase
+          .from("tarjetas_acceso")
+          .select(`
+            codigo,
+            clientes (
+              id, 
+              nombre, 
+              dni, 
+              estado, 
+              avatar_url, 
+              fecha_fin, 
+              membresia_id,
+              membresias (
+                nombre,
+                modalidad
+              )
+            )
+          `)
+          .eq("codigo", valor)
+          .maybeSingle();
 
-    if (!tarjeta || !tarjeta.clientes) {
-      // Mostrar overlay de acceso denegado por usuario no registrado
-      setOverlayKind("denied");
-      setOverlayDeniedReason("unknown");
-      setUltimoCliente(null);
-      setOverlayVisible(true);
-      if (overlayTimerRef.current) {
-        clearTimeout(overlayTimerRef.current);
-        overlayTimerRef.current = null;
+        if (tarjeta?.clientes) {
+          const clienteData = Array.isArray(tarjeta.clientes) ? tarjeta.clientes[0] : tarjeta.clientes;
+          cliente = clienteData;
+        }
       }
-      overlayTimerRef.current = window.setTimeout(() => {
-        setOverlayVisible(false);
-        setOverlayKind(null);
-        setOverlayDeniedReason(null);
-      }, 5000);
-      return;
-    }
 
-    const cliente = Array.isArray(tarjeta.clientes) ? tarjeta.clientes[0] : tarjeta.clientes;
-
-    // Consultar nombre y modalidad de la membresía para mostrar correctamente
-    let esDiario = false;
-    let nombreMembresia: string | null = null;
-    let modalidadMembresia: string | null = null;
-
-    // La query ya incluye los datos de membresias, extraerlos
-    if (cliente.membresias) {
-      const membresia = Array.isArray(cliente.membresias) ? cliente.membresias[0] : cliente.membresias;
-      if (membresia) {
-        nombreMembresia = membresia.nombre;
-        modalidadMembresia = membresia.modalidad;
-        esDiario = membresia.modalidad === "diario";
+      if (!cliente) {
+        // Mostrar overlay de acceso denegado por usuario no registrado
+        setOverlayKind("denied");
+        setOverlayDeniedReason("unknown");
+        setUltimoCliente(null);
+        setOverlayVisible(true);
+        if (overlayTimerRef.current) {
+          clearTimeout(overlayTimerRef.current);
+          overlayTimerRef.current = null;
+        }
+        overlayTimerRef.current = window.setTimeout(() => {
+          setOverlayVisible(false);
+          setOverlayKind(null);
+          setOverlayDeniedReason(null);
+        }, 5000);
+        return;
       }
+
+      // Extraer info de membresía
+      let esDiario = false;
+      let nombreMembresia: string | null = null;
+      let modalidadMembresia: string | null = null;
+
+      if (cliente.membresias) {
+        const membresia = Array.isArray(cliente.membresias) ? cliente.membresias[0] : cliente.membresias;
+        if (membresia) {
+          nombreMembresia = membresia.nombre;
+          modalidadMembresia = membresia.modalidad;
+          esDiario = membresia.modalidad === "diario";
+        }
+      }
+
+      // Enriquecer cliente
+      const clienteConMembresia = {
+        ...cliente,
+        nombre_membresia: nombreMembresia,
+        tipo_membresia: modalidadMembresia,
+      };
+
+      setUltimoCodigoQR(valor);
+      await registrarAsistencia(clienteConMembresia, esDiario);
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error buscando cliente", 
+        description: error.message 
+      });
     }
-
-    // Enriquecer cliente para que el overlay muestre la membresía actual
-    const clienteConMembresia = {
-      ...cliente,
-      nombre_membresia: nombreMembresia,
-      tipo_membresia: modalidadMembresia,
-    } as any; // Casting temporal para compatibilidad
-
-    setUltimoCodigoQR(valor);
-    await registrarAsistencia(clienteConMembresia, esDiario);
   };
 
   // Utilidad para formatear fecha YYYY-MM-DD
