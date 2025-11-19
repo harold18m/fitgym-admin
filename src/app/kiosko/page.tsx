@@ -12,7 +12,7 @@ import { Camera, CheckCircle2, User2, IdCard, Star, CalendarRange, XCircle, Aler
 export default function Kiosko() {
   const { toast } = useToast();
   const [scanActive] = useState(true);
-  const [horaActual, setHoraActual] = useState<string>(new Date().toLocaleTimeString());
+  const [horaActual, setHoraActual] = useState<string>("");
   const [puertaEstado, setPuertaEstado] = useState<"desconectada" | "conectada" | "abriendo" | "error">("desconectada");
   const serialDisponible = typeof (navigator as any).serial !== "undefined";
 
@@ -75,7 +75,7 @@ export default function Kiosko() {
     const vencidaPorFecha = estaVencidaPorFecha(cliente.fecha_fin);
     const suspendida = cliente.estado === "suspendida";
     const vencidaEstado = cliente.estado === "vencida";
-    
+
     if (vencidaPorFecha || suspendida || vencidaEstado) {
       // Mostrar overlay de acceso denegado
       setUltimoCliente(cliente);
@@ -134,7 +134,7 @@ export default function Kiosko() {
           abrirCerradura();
           return;
         }
-        
+
         throw new Error(data.error || "Error al registrar asistencia");
       }
 
@@ -156,14 +156,14 @@ export default function Kiosko() {
         setUltimoCliente(null);
         setUltimoCodigoQR("");
       }, 5000);
-      
+
       playAccessSound();
       abrirCerradura();
     } catch (error: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "Error al registrar", 
-        description: error.message 
+      toast({
+        variant: "destructive",
+        title: "Error al registrar",
+        description: error.message
       });
     }
   };
@@ -237,7 +237,7 @@ export default function Kiosko() {
       if (valor.startsWith("CLIENT:")) {
         const id = valor.slice(7);
         const response = await fetch(`/api/clientes/${id}`);
-        
+
         if (response.ok) {
           cliente = await response.json();
         }
@@ -312,10 +312,10 @@ export default function Kiosko() {
       setUltimoCodigoQR(valor);
       await registrarAsistencia(clienteConMembresia, esDiario);
     } catch (error: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "Error buscando cliente", 
-        description: error.message 
+      toast({
+        variant: "destructive",
+        title: "Error buscando cliente",
+        description: error.message
       });
     }
   };
@@ -335,6 +335,9 @@ export default function Kiosko() {
   };
 
   useEffect(() => {
+    // Inicializar la hora inmediatamente en el cliente
+    setHoraActual(new Date().toLocaleTimeString());
+    
     const id = window.setInterval(() => {
       setHoraActual(new Date().toLocaleTimeString());
     }, 1000);
@@ -348,7 +351,7 @@ export default function Kiosko() {
       {/* Hora en la esquina superior derecha */}
       <div className="fixed top-4 right-6 z-30">
         <span className="px-4 py-2 rounded-md border border-neutral-800 bg-neutral-900 text-neutral-100 font-mono text-3xl tracking-tight shadow-sm">
-          {horaActual}
+          {horaActual || "--:--:--"}
         </span>
       </div>
       <div className="flex flex-col items-center mb-6">
