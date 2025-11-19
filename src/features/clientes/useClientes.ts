@@ -1,9 +1,6 @@
 // Nueva versión con Prisma
 import { useState, useEffect } from "react";
-import { clientesKeys } from '@/queries/clientesQueries';
-import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from "@/hooks/use-toast";
-import { useMembresias } from "@/hooks/useMembresias";
 import { authenticatedFetch, authenticatedGet } from "@/lib/fetch-utils";
 import type { clientes, EstadoCliente } from "@prisma/client";
 
@@ -29,16 +26,12 @@ export const useClientes = (initialClientes: clientes[] = []) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [clienteToDelete, setClienteToDelete] = useState<string | null>(null);
   const { toast } = useToast();
-  const { getMembresiasPorSeleccion } = useMembresias();
-  const queryClient = useQueryClient();
 
   // Cargar clientes desde la API solo cuando se necesite refrescar
   const fetchClientes = async () => {
     try {
       const data = await authenticatedGet<clientes[]>('/api/clientes');
       setClientes(data);
-      // Escribir en cache para que otros consumidores lo vean inmediatamente
-      queryClient.setQueryData(clientesKeys.lists(), data);
       return data;
     } catch (err) {
       console.error('Error al cargar clientes:', err);
@@ -50,13 +43,6 @@ export const useClientes = (initialClientes: clientes[] = []) => {
       throw err;
     }
   };
-
-  // Inicializar cache con datos iniciales del servidor
-  useEffect(() => {
-    if (initialClientes.length > 0) {
-      queryClient.setQueryData(clientesKeys.lists(), initialClientes);
-    }
-  }, [initialClientes, queryClient]);
 
   const filteredClientes = clientes.filter(
     (cliente) =>
@@ -90,8 +76,6 @@ export const useClientes = (initialClientes: clientes[] = []) => {
 
       // Actualizar estado local inmediatamente
       setClientes(clientes.filter((cliente) => cliente.id !== clienteToDelete));
-      // Invalidar cache global de clientes para que otros componentes se actualicen
-      queryClient.invalidateQueries({ queryKey: ['clientes', 'list'] });
       toast({
         title: "Cliente eliminado",
         description: "El cliente ha sido eliminado correctamente",
@@ -148,9 +132,6 @@ export const useClientes = (initialClientes: clientes[] = []) => {
         });
       }
 
-      // Invalidar cache global de clientes para que se refresque con los cambios
-      queryClient.invalidateQueries({ queryKey: ['clientes', 'list'] });
-
       if (options.closeDialog) {
         setIsDialogOpen(false);
         setClienteActual(null);
@@ -192,7 +173,6 @@ export const useClientes = (initialClientes: clientes[] = []) => {
     setIsDeleteDialogOpen,
     onSubmit,
     handleAddNew,
-    membresiasDisponibles: getMembresiasPorSeleccion(),
     fetchClientes,
     saveCliente,
   };

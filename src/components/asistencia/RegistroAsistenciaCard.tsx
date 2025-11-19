@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 import {
     QrCode,
     UserCheck,
@@ -21,10 +22,17 @@ import {
     Maximize2,
     Minimize2,
 } from "lucide-react";
-import { Cliente } from "@/queries/clientesQueries";
-import { useRegistrarAsistencia } from "@/queries/asistenciasQueries";
+import type { asistencias, clientes, EstadoCliente } from "@prisma/client";
 
-export function RegistroAsistenciaCard() {
+type AsistenciaConCliente = asistencias & {
+  clientes: Pick<clientes, 'id' | 'nombre' | 'dni' | 'email' | 'avatar_url' | 'estado'>;
+};
+
+interface RegistroAsistenciaCardProps {
+    onRegistroExitoso?: (asistencia: AsistenciaConCliente) => void;
+}
+
+export function RegistroAsistenciaCard({ onRegistroExitoso }: RegistroAsistenciaCardProps = {}) {
     const [dniInput, setDniInput] = useState("");
     const [modoAsistencia, setModoAsistencia] = useState<"qr" | "dni">("dni");
     const [qrManual, setQrManual] = useState("");
@@ -33,9 +41,9 @@ export function RegistroAsistenciaCard() {
     const [isProcessingQR, setIsProcessingQR] = useState(false);
     const [lastScannedQR, setLastScannedQR] = useState("");
     const [lastRegisteredClient, setLastRegisteredClient] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-
-    const { mutate: registrarAsistenciaAPI, isPending: isLoading } = useRegistrarAsistencia();
+    const router = useRouter();
 
     // Escáner QR (carga dinámica en cliente)
     const QrScanner = dynamic(
@@ -44,7 +52,7 @@ export function RegistroAsistenciaCard() {
     );
 
     const registrarAsistencia = useCallback(
-        async (cliente: Cliente, tipo: "qr" | "dni") => {
+        async (cliente: clientes, tipo: "qr" | "dni") => {
             if (cliente.estado === "vencida" || cliente.estado === "suspendida") {
                 toast({
                     variant: "destructive",
@@ -54,45 +62,65 @@ export function RegistroAsistenciaCard() {
                 return;
             }
 
-            // Usar la mutación de TanStack Query
-            registrarAsistenciaAPI(
-                {
-                    cliente_id: cliente.id,
-                    notas: tipo,
-                },
-                {
-                    onSuccess: (asistencia) => {
-                        const hora = new Date(asistencia.fecha_asistencia)
-                            .toTimeString()
-                            .split(" ")[0];
+            setIsLoading(true);
+            try {
+                const response = await fetch("/api/asistencias", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        cliente_id: cliente.id,
+                        notas: tipo,
+                    }),
+                });
 
-                        // Actualizar el mensaje de confirmación para el QR scanner
-                        if (tipo === "qr") {
-                            setLastRegisteredClient(`${cliente.nombre} - ${hora}`);
-                            // Limpiar el mensaje después de 5 segundos
-                            setTimeout(() => {
-                                setLastRegisteredClient(null);
-                            }, 5000);
-                        }
+                const data = await response.json();
 
-                        setDniInput("");
-                    },
-                    onError: (error: Error) => {
-                        // Para el QR scanner, limpiar el estado si hay error de asistencia duplicada
-                        if (
-                            tipo === "qr" &&
-                            error.message.includes("ya registró su asistencia hoy")
-                        ) {
-                            setLastRegisteredClient(`${cliente.nombre} - Ya registrado hoy`);
-                            setTimeout(() => {
-                                setLastRegisteredClient(null);
-                            }, 5000);
-                        }
-                    },
+                if (!response.ok) {
+                    throw new Error(data.error || "Error al registrar asistencia");
                 }
-            );
+
+                const hora = new Date(data.fecha_asistencia)
+                    .toTimeString()
+                    .split(" ")[0];
+
+                // Llamar callback si existe
+                if (onRegistroExitoso && data) {
+                    onRegistroExitoso(data as any);
+                }
+
+                // Actualizar el mensaje de confirmación para el QR scanner
+                if (tipo === "qr") {
+                    setLastRegisteredClient(`${cliente.nombre} - ${hora}`);
+                    // Limpiar el mensaje después de 5 segundos
+                    setTimeout(() => {
+                        setLastRegisteredClient(null);
+                    }, 5000);
+                }
+
+                setDniInput("");
+                router.refresh();
+            } catch (error: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Error de registro",
+                    description: error.message,
+                });
+
+                // Para el QR scanner, limpiar el estado si hay error de asistencia duplicada
+                if (
+                    tipo === "qr" &&
+                    error.message.includes("ya registró su asistencia hoy")
+                ) {
+                    setLastRegisteredClient(`${cliente.nombre} - Ya registrado hoy`);
+                    setTimeout(() => {
+                        setLastRegisteredClient(null);
+                    }, 5000);
+                }
+            } finally {
+                setIsLoading(false);
+            }
         },
-        [registrarAsistenciaAPI, toast]
+        [toast, onRegistroExitoso, router]
     );
 
     const registrarPorDNI = useCallback(async () => {
@@ -162,7 +190,7 @@ export function RegistroAsistenciaCard() {
                 return;
             }
 
-            let cliente: Cliente | null = null;
+            let cliente: clientes | null = null;
 
             try {
                 if (fromCamera) {

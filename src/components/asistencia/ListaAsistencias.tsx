@@ -20,8 +20,19 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Search, Clock, Calendar, QrCode, UserCheck, Loader2 } from "lucide-react";
-import { AsistenciaConCliente } from "@/queries/asistenciasQueries";
 import { getStatusBadge } from "@/utils/asistenciaUtils";
+import { asistencias } from "@prisma/client";
+
+type AsistenciaConCliente = asistencias & {
+    clientes: {
+        id: string;
+        nombre: string;
+        dni: string | null;
+        avatar_url: string | null;
+        email: string;
+        estado: string;
+    } | null;
+};
 
 interface ListaAsistenciasProps {
     asistencias: AsistenciaConCliente[];
@@ -151,15 +162,17 @@ export function ListaAsistencias({ asistencias, isLoading }: ListaAsistenciasPro
                                                 {cliente.dni || "—"}
                                             </TableCell>
                                             <TableCell>
-                                                {cliente.fecha_fin ? (
-                                                    new Date(cliente.fecha_fin) > new Date() ? (
-                                                        <Badge variant="default">Activa</Badge>
-                                                    ) : (
-                                                        <Badge variant="destructive">Vencida</Badge>
-                                                    )
-                                                ) : (
-                                                    <Badge variant="secondary">Sin membresía</Badge>
-                                                )}
+                                                <Badge 
+                                                    variant={
+                                                        cliente.estado === 'activa' 
+                                                            ? 'default' 
+                                                            : cliente.estado === 'vencida' 
+                                                            ? 'destructive' 
+                                                            : 'secondary'
+                                                    }
+                                                >
+                                                    {cliente.estado === 'activa' ? 'Activa' : cliente.estado === 'vencida' ? 'Vencida' : 'Sin membresía'}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col gap-1">

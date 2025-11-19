@@ -1,4 +1,3 @@
-"use client";
 import {
   Activity,
   Users,
@@ -8,34 +7,13 @@ import {
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActivityChart } from "@/components/dashboard/ActivityChart";
 import { PaymentStatusPanel } from "@/components/dashboard/PaymentStatusPanel";
-import { authenticatedGet } from "@/lib/fetch-utils";
+import { getDashboardStats } from "@/lib/data/dashboard";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 
-import { useEffect, useState } from "react";
-
-export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalClientes: 0,
-    asistenciasHoy: 0,
-    clasesHoy: 0,
-    ingresosHoy: 0,
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        const data = await authenticatedGet<typeof stats>('/api/dashboard/stats');
-        setStats(data);
-      } catch (error) {
-        console.error("Error al cargar métricas del dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
+export default async function Dashboard() {
+  const stats = await getDashboardStats();
 
   return (
     <div className="space-y-6">
@@ -51,14 +29,14 @@ export default function Dashboard() {
           title="Clientes Totales"
           value={String(stats.totalClientes)}
           icon={Users}
-          description="+12% desde el mes pasado"
+          description={`${stats.clientesActivos} con membresía activa`}
           iconColor="text-gym-blue"
         />
         <StatCard
           title="Asistencias Hoy"
           value={String(stats.asistenciasHoy)}
           icon={Activity}
-          description="Actualizado en tiempo real"
+          description={`${stats.aforoActual} personas en el gimnasio`}
           iconColor="text-gym-green"
         />
         <StatCard
@@ -70,7 +48,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Ingresos"
-          value={`$${stats.ingresosHoy.toLocaleString("en-US")}`}
+          value={`S/ ${stats.ingresosHoy.toLocaleString("es-PE")}`}
           icon={TrendingUp}
           description="Ingresos estimados del día"
           iconColor="text-green-500"
@@ -78,10 +56,23 @@ export default function Dashboard() {
       </div>
 
       <div className="w-full">
-        <ActivityChart />
+        <Suspense fallback={
+          <Card className="p-6">
+            <Skeleton className="h-[300px] w-full" />
+          </Card>
+        }>
+          <ActivityChart />
+        </Suspense>
       </div>
+
       <div className="lg:col-span-3">
-        <PaymentStatusPanel />
+        <Suspense fallback={
+          <Card className="p-6">
+            <Skeleton className="h-[200px] w-full" />
+          </Card>
+        }>
+          <PaymentStatusPanel />
+        </Suspense>
       </div>
     </div>
   );

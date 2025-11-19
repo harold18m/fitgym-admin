@@ -27,7 +27,6 @@ export function ClientesContent({ initialClientes }: ClientesContentProps) {
         setIsDeleteDialogOpen,
         onSubmit,
         handleAddNew,
-        membresiasDisponibles,
         saveCliente,
     } = useClientes(initialClientes);
 
@@ -54,7 +53,7 @@ export function ClientesContent({ initialClientes }: ClientesContentProps) {
                 onOpenChange={setIsDialogOpen}
                 onSubmit={onSubmit}
                 clienteActual={clienteActual}
-                membresiasDisponibles={membresiasDisponibles}
+                membresiasDisponibles={[]}
                 saveCliente={saveCliente}
                 autoCreateAccount={true}
             />
