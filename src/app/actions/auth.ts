@@ -3,23 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { verificarAdminExiste, crearPrimerAdmin } from '@/lib/auth-admin';
 import { z } from 'zod';
-
-// Helper para obtener la URL base correcta
-function getBaseUrl() {
-    // En producción, usar VERCEL_URL o NEXT_PUBLIC_SITE_URL
-    if (process.env.NEXT_PUBLIC_SITE_URL) {
-        return process.env.NEXT_PUBLIC_SITE_URL;
-    }
-    
-    // En Vercel, usar VERCEL_URL
-    if (process.env.VERCEL_URL) {
-        return `https://${process.env.VERCEL_URL}`;
-    }
-    
-    // Fallback a localhost
-    return 'http://localhost:3000';
-}
 
 // Schemas de validación
 const loginSchema = z.object({
@@ -133,13 +118,7 @@ export async function logout(): Promise<AuthResult> {
  */
 export async function checkAdminExists(): Promise<boolean> {
     try {
-        const baseUrl = getBaseUrl();
-        const response = await fetch(
-            `${baseUrl}/api/auth/verificar-admin`,
-            { cache: 'no-store' }
-        );
-        const data = await response.json();
-        return data.existeAdmin || false;
+        return await verificarAdminExiste();
     } catch (error) {
         console.error('Error verificando admin:', error);
         return false;
@@ -170,28 +149,17 @@ export async function signup(formData: FormData): Promise<AuthResult> {
             };
         }
 
-        // Usar el API endpoint que auto-confirma el email
-        const baseUrl = getBaseUrl();
-        const response = await fetch(
-            `${baseUrl}/api/auth/registrar-primer-admin`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: validatedData.email,
-                    password: validatedData.password,
-                    nombre: validatedData.nombre,
-                }),
-                cache: 'no-store',
-            }
-        );
+        // Crear el admin usando la función directa (sin HTTP fetch)
+        const resultado = await crearPrimerAdmin({
+            email: validatedData.email,
+            password: validatedData.password,
+            nombre: validatedData.nombre,
+        });
 
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
+        if (!resultado.success) {
             return {
                 success: false,
-                error: data.error || 'Error al crear administrador',
+                error: resultado.error || 'Error al crear administrador',
             };
         }
 

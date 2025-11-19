@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { crearPrimerAdmin } from '@/lib/auth-admin';
 
 export async function POST(request: Request) {
     try {
@@ -14,49 +14,16 @@ export async function POST(request: Request) {
             );
         }
 
-        // Verificar que NO exista ningún admin antes de crear uno
-        const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-
-        if (listError) {
-            console.error('Error listando usuarios:', listError);
-            return NextResponse.json(
-                { error: 'Error verificando usuarios existentes' },
-                { status: 500 }
-            );
-        }
-
-        // Verificar si ya existe un admin
-        const existeAdmin = users.users.some(user => {
-            const rol = user.user_metadata?.rol || user.app_metadata?.rol;
-            return rol === 'admin';
-        });
-
-        if (existeAdmin) {
-            return NextResponse.json(
-                { error: 'Ya existe un usuario administrador en el sistema' },
-                { status: 403 }
-            );
-        }
-
-        // Crear el usuario con rol admin
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        const resultado = await crearPrimerAdmin({
             email,
             password,
-            email_confirm: true, // Auto-confirmar el email
-            user_metadata: {
-                nombre: nombre || 'Administrador',
-                rol: 'admin'
-            },
-            app_metadata: {
-                rol: 'admin'
-            }
+            nombre: nombre || 'Administrador',
         });
 
-        if (createError) {
-            console.error('Error creando usuario admin:', createError);
+        if (!resultado.success) {
             return NextResponse.json(
-                { error: createError.message || 'Error al crear usuario administrador' },
-                { status: 500 }
+                { error: resultado.error },
+                { status: resultado.error?.includes('Ya existe') ? 403 : 500 }
             );
         }
 
@@ -64,8 +31,7 @@ export async function POST(request: Request) {
             success: true,
             message: 'Usuario administrador creado exitosamente',
             user: {
-                id: newUser.user.id,
-                email: newUser.user.email
+                id: resultado.userId
             }
         });
 
