@@ -14,7 +14,7 @@ export default function Kiosko() {
   const [scanActive] = useState(true);
   const [horaActual, setHoraActual] = useState<string>("");
   const [puertaEstado, setPuertaEstado] = useState<"desconectada" | "conectada" | "abriendo" | "error">("desconectada");
-  const serialDisponible = typeof (navigator as any).serial !== "undefined";
+  const [serialDisponible, setSerialDisponible] = useState(false);
 
   const [ultimoCliente, setUltimoCliente] = useState<Database["public"]["Tables"]["clientes"]["Row"] | null>(null);
   const [ultimaHora, setUltimaHora] = useState<string>("");
@@ -338,15 +338,16 @@ export default function Kiosko() {
     // Inicializar la hora inmediatamente en el cliente
     setHoraActual(new Date().toLocaleTimeString());
     
+    // Verificar disponibilidad de Serial API
+    setSerialDisponible(typeof (navigator as any).serial !== "undefined");
+    
     const id = window.setInterval(() => {
       setHoraActual(new Date().toLocaleTimeString());
     }, 1000);
     return () => {
       clearInterval(id);
     };
-  }, []);
-
-  return (
+  }, []);  return (
     <div className="min-h-screen w-full bg-neutral-950 text-white flex flex-col items-center p-6">
       {/* Hora en la esquina superior derecha */}
       <div className="fixed top-4 right-6 z-30">
