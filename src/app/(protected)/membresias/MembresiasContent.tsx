@@ -15,7 +15,13 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
-type MembresiaInsert = Omit<membresias, 'id' | 'created_at' | 'updated_at' | 'clientes_activos'>;
+// Tipo serializado para Client Components (Decimal → number)
+type MembresiaSerializada = Omit<membresias, 'precio' | 'duracion'> & {
+    precio: number;
+    duracion: number | undefined;
+};
+
+type MembresiaInsert = Omit<MembresiaSerializada, 'id' | 'created_at' | 'updated_at' | 'clientes_activos'>;
 
 const tiposMembresia = [
     { value: 'mensual', label: 'Mensual', icon: CreditCard, color: 'bg-purple-100 text-purple-800' },
@@ -29,13 +35,13 @@ const modalidadesAcceso = [
 ];
 
 interface MembresiasContentProps {
-    initialMembresias: membresias[];
+    initialMembresias: MembresiaSerializada[];
 }
 
 export function MembresiasContent({ initialMembresias }: MembresiasContentProps) {
-    const [membresias, setMembresias] = useState<membresias[]>(initialMembresias);
+    const [membresias, setMembresias] = useState<MembresiaSerializada[]>(initialMembresias);
     const [dialogoAbierto, setDialogoAbierto] = useState(false);
-    const [editando, setEditando] = useState<membresias | null>(null);
+    const [editando, setEditando] = useState<MembresiaSerializada | null>(null);
     const [nuevaMembresia, setNuevaMembresia] = useState<Partial<MembresiaInsert>>({
         nombre: '',
         descripcion: null,
@@ -47,7 +53,7 @@ export function MembresiasContent({ initialMembresias }: MembresiasContentProps)
         activa: true
     });
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-    const [membresiaAEliminar, setMembresiaAEliminar] = useState<membresias | null>(null);
+    const [membresiaAEliminar, setMembresiaAEliminar] = useState<MembresiaSerializada | null>(null);
     const [nuevaCaracteristica, setNuevaCaracteristica] = useState('');
     const { toast } = useToast();
     const router = useRouter();
@@ -123,7 +129,7 @@ export function MembresiasContent({ initialMembresias }: MembresiasContentProps)
         });
     };
 
-    const editarMembresiaHandler = (membresia: membresias) => {
+    const editarMembresiaHandler = (membresia: MembresiaSerializada) => {
         setEditando(membresia);
         setNuevaMembresia({
             nombre: membresia.nombre,

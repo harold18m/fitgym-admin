@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { authenticatedFetch } from '@/lib/fetch-utils';
 
@@ -150,10 +150,7 @@ export const useMembershipExpiration = () => {
     }
   };
 
-  // Cargar membresías próximas a vencer al montar el componente
-  useEffect(() => {
-    fetchExpiringMemberships();
-  }, []);
+  // NO cargar automáticamente - el componente debe llamar fetchExpiringMemberships manualmente
 
   return {
     expiringMemberships,

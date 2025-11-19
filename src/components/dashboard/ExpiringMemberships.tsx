@@ -10,10 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Calendar, RefreshCw } from "lucide-react";
 import { useMembershipExpiration } from "@/hooks/useMembershipExpiration";
-import { useClientes } from "@/features/clientes/useClientes";
+import type { clientes } from "@prisma/client";
 
-export function ExpiringMemberships() {
-  const { clientes } = useClientes();
+interface ExpiringMembershipsProps {
+  clientes: clientes[];
+}
+
+export function ExpiringMemberships({ clientes }: ExpiringMembershipsProps) {
   const { getMembershipStatus, getStatusColor, getStatusText } = useMembershipExpiration();
 
   // Calcular días restantes localmente (sin RPC)
