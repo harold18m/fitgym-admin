@@ -8,7 +8,8 @@
     "build": "next build",
     "build:dev": "next build",
     "lint": "eslint .",
-    "vercel-build": "npm run build"
+    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
